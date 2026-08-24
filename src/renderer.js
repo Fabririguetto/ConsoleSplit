@@ -972,6 +972,18 @@ async function addPane(tabId, cwd, parentEl = null) {
       return false;
     }
 
+    // Ctrl+Backspace — delete previous word using tracked lineBuffer
+    // Sends N backspaces (\x7f) instead of \x17 so funciona en cmd.exe también
+    if (e.ctrlKey && e.key === 'Backspace') {
+      const wordMatch = lineBuffer.match(/\S+\s*$/);
+      if (wordMatch) {
+        const n = wordMatch[0].length;
+        api.ptyWrite({ id: ptyId, data: '\x7f'.repeat(n) });
+        lineBuffer = lineBuffer.slice(0, lineBuffer.length - n);
+      }
+      return false;
+    }
+
     // Ctrl+Shift+C — copy selection
     if (e.ctrlKey && e.shiftKey && e.key === 'C') {
       const sel = term.getSelection();
