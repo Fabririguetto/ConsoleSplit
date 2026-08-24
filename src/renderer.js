@@ -560,6 +560,12 @@ async function applyGridLayout(tabId, layoutId) {
   if (tab.panes.length > 0) setActivePane(tab.panes[0]);
 }
 
+function cdCmd(dir) {
+  const shell = settings.shell || '';
+  const isPs = shell.includes('pwsh') || shell.includes('powershell');
+  return isPs ? `cd "${dir}"\r` : `cd /d "${dir}"\r`;
+}
+
 // ── Redirect all consoles ─────────────────────────────────────────────────────
 
 async function redirectAllConsoles() {
@@ -573,7 +579,7 @@ async function redirectAllConsoles() {
     pane.path = newDir;
     const pathSpan = pane.el.querySelector('.pane-path');
     if (pathSpan) { pathSpan.textContent = newDir; pathSpan.title = newDir; }
-    api.ptyWrite({ id: pane.ptyId, data: `cd /d "${newDir}"\r` });
+    api.ptyWrite({ id: pane.ptyId, data: cdCmd(newDir) });
     refreshGitBranch(paneId);
   });
 }
@@ -675,7 +681,7 @@ async function duplicateTab() {
     const p = panes[paneId];
     if (!p || !snapshot.panes[j]) return;
     p.path = snapshot.panes[j].path;
-    api.ptyWrite({ id: p.ptyId, data: `cd /d "${snapshot.panes[j].path}"\r` });
+    api.ptyWrite({ id: p.ptyId, data: cdCmd(snapshot.panes[j].path) });
     const ps = p.el.querySelector('.pane-path');
     if (ps) { ps.textContent = snapshot.panes[j].path; ps.title = snapshot.panes[j].path; }
     refreshGitBranch(paneId);
@@ -813,7 +819,7 @@ async function addPane(tabId, cwd, parentEl = null) {
       pathSpan.textContent = newDir;
       pathSpan.title = newDir;
       panes[paneId].path = newDir;
-      api.ptyWrite({ id: ptyId, data: `cd /d "${newDir}"\r` });
+      api.ptyWrite({ id: ptyId, data: cdCmd(newDir) });
       refreshGitBranch(paneId);
     }
   };
@@ -1313,7 +1319,7 @@ async function loadProfile(profile) {
       tabs[0].panes.forEach((paneId, j) => {
         if (paths[j] && panes[paneId]) {
           panes[paneId].path = paths[j];
-          api.ptyWrite({ id: panes[paneId].ptyId, data: `cd /d "${paths[j]}"\r` });
+          api.ptyWrite({ id: panes[paneId].ptyId, data: cdCmd(paths[j]) });
           const ps = panes[paneId].el.querySelector('.pane-path');
           if (ps) { ps.textContent = paths[j]; ps.title = paths[j]; }
           refreshGitBranch(paneId);
@@ -1325,7 +1331,7 @@ async function loadProfile(profile) {
       getTab(tabId).panes.forEach((paneId, j) => {
         if (paths[j] && panes[paneId]) {
           panes[paneId].path = paths[j];
-          api.ptyWrite({ id: panes[paneId].ptyId, data: `cd /d "${paths[j]}"\r` });
+          api.ptyWrite({ id: panes[paneId].ptyId, data: cdCmd(paths[j]) });
           const ps = panes[paneId].el.querySelector('.pane-path');
           if (ps) { ps.textContent = paths[j]; ps.title = paths[j]; }
           refreshGitBranch(paneId);
