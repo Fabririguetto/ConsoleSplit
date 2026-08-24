@@ -994,7 +994,11 @@ async function addPane(tabId, cwd, parentEl = null) {
     // Ctrl+Shift+V — paste
     if (e.ctrlKey && e.shiftKey && e.key === 'V') {
       navigator.clipboard.readText().then(text => {
-        if (text) api.ptyWrite({ id: ptyId, data: text });
+        if (text) {
+          api.ptyWrite({ id: ptyId, data: text });
+          const lastNl = Math.max(text.lastIndexOf('\r'), text.lastIndexOf('\n'));
+          lineBuffer = lastNl >= 0 ? text.slice(lastNl + 1) : lineBuffer + text;
+        }
       });
       return false;
     }
@@ -1012,7 +1016,11 @@ async function addPane(tabId, cwd, parentEl = null) {
     if (sel) { await navigator.clipboard.writeText(sel); term.clearSelection(); }
     else {
       const text = await navigator.clipboard.readText().catch(() => '');
-      if (text) api.ptyWrite({ id: ptyId, data: text });
+      if (text) {
+        api.ptyWrite({ id: ptyId, data: text });
+        const lastNl = Math.max(text.lastIndexOf('\r'), text.lastIndexOf('\n'));
+        lineBuffer = lastNl >= 0 ? text.slice(lastNl + 1) : lineBuffer + text;
+      }
     }
   }, true); // true = capture phase
 
