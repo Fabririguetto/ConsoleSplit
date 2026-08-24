@@ -610,7 +610,7 @@ function setupGlobalShortcuts() {
     }
     if (e.ctrlKey && e.shiftKey && !e.altKey) {
       if (e.key === 'H') { e.preventDefault(); simpleSplit('horizontal'); return; }
-      if (e.key === 'V') { e.preventDefault(); simpleSplit('vertical'); return; }
+      if (e.key === 'E') { e.preventDefault(); simpleSplit('vertical'); return; }
       if (e.key === 'S') { e.preventDefault(); saveCurrentAsProfile(); return; }
       if (e.key === 'G') { e.preventDefault(); redirectAllConsoles(); return; }
       if (e.key === 'D') { e.preventDefault(); duplicateTab(); return; }
