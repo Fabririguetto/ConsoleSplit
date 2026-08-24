@@ -6,11 +6,60 @@
   "scripts": {
     "start": "electron .",
     "rebuild": "electron-rebuild -f -w node-pty",
-    "pack": "electron-packager . ConsoleSplit --platform=win32 --arch=x64 --out=dist --overwrite"
+    "pack": "electron-packager . ConsoleSplit --platform=win32 --arch=x64 --out=dist --overwrite --asar --asar-unpack=node_modules/node-pty/**",
+    "dist": "electron-builder --win",
+    "dist:portable": "electron-builder --win portable"
   },
-  "keywords": ["terminal", "electron", "multi-terminal", "console"],
+  "keywords": [
+    "terminal",
+    "electron",
+    "multi-terminal",
+    "console"
+  ],
   "author": "Fabririguetto",
   "license": "MIT",
+  "build": {
+    "appId": "com.fabririguetto.consolesplit",
+    "productName": "ConsoleSplit",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "node_modules/**/*",
+      "!node_modules/.cache/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ConsoleSplit"
+    },
+    "extraResources": [],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ]
+  },
   "dependencies": {
     "node-pty": "^1.0.0",
     "split.js": "^1.6.5",
@@ -20,6 +69,7 @@
   },
   "devDependencies": {
     "electron": "^28.0.0",
+    "electron-builder": "^24.13.3",
     "electron-packager": "^17.1.2",
     "electron-rebuild": "^3.2.9"
   }

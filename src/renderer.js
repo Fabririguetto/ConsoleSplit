@@ -370,7 +370,11 @@ async function applyGridLayout(tabId, layoutId) {
 async function redirectAllConsoles() {
   const newDir = await api.openDir();
   if (!newDir) return;
-  Object.values(panes).forEach(pane => {
+  const tab = getTab(activeTabId);
+  if (!tab) return;
+  tab.panes.forEach(paneId => {
+    const pane = panes[paneId];
+    if (!pane) return;
     pane.path = newDir;
     const pathSpan = pane.el.querySelector('.pane-path');
     if (pathSpan) { pathSpan.textContent = newDir; pathSpan.title = newDir; }
