@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" />
+  <title>ConsoleSplit</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="../node_modules/xterm/css/xterm.css" />
+</head>
+<body>
+
+  <!-- Custom title bar -->
+  <div id="titlebar">
+    <div id="titlebar-drag">
+      <span id="app-icon">⬡</span>
+      <span id="app-title">ConsoleSplit</span>
+    </div>
+    <div id="titlebar-controls">
+      <button id="btn-minimize" title="Minimizar">─</button>
+      <button id="btn-maximize" title="Maximizar">□</button>
+      <button id="btn-close" title="Cerrar">✕</button>
+    </div>
+  </div>
+
+  <!-- Main layout -->
+  <div id="app">
+
+    <!-- Sidebar: profiles -->
+    <aside id="sidebar" class="collapsed">
+      <div id="sidebar-header">
+        <span>Perfiles</span>
+        <button id="btn-add-profile" title="Guardar perfil actual">＋</button>
+      </div>
+      <ul id="profile-list"></ul>
+    </aside>
+
+    <!-- Center: tabs + terminal area -->
+    <div id="main-area">
+
+      <!-- Tab bar -->
+      <div id="tab-bar">
+        <div id="tabs-container"></div>
+        <button id="btn-new-tab" title="Nueva pestaña (Ctrl+T)">＋</button>
+        <div id="tab-actions">
+          <button id="btn-split-h" title="Dividir horizontal (Ctrl+Shift+H)">⬛▌</button>
+          <button id="btn-split-v" title="Dividir vertical (Ctrl+Shift+V)">⬛▀</button>
+          <button id="btn-toggle-sidebar" title="Perfiles">☰</button>
+          <button id="btn-toggle-history" title="Historial global">⏱</button>
+        </div>
+      </div>
+
+      <!-- Terminal panels area -->
+      <div id="terminal-area"></div>
+
+      <!-- History panel -->
+      <div id="history-panel" class="collapsed">
+        <div id="history-header">
+          <span>Historial de comandos</span>
+          <div>
+            <input id="history-search" type="text" placeholder="Filtrar comandos..." />
+            <button id="btn-clear-history" title="Limpiar historial">🗑</button>
+            <button id="btn-close-history" title="Cerrar">✕</button>
+          </div>
+        </div>
+        <ul id="history-list"></ul>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="../node_modules/xterm/lib/xterm.js"></script>
+  <script src="../node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+  <script src="../node_modules/xterm-addon-web-links/lib/xterm-addon-web-links.js"></script>
+  <script src="../node_modules/split.js/dist/split.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

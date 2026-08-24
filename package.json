@@ -1,0 +1,26 @@
+{
+  "name": "consolesplit",
+  "version": "1.0.0",
+  "description": "Multi-terminal desktop app with tabs and split panes",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "rebuild": "electron-rebuild -f -w node-pty",
+    "pack": "electron-packager . ConsoleSplit --platform=win32 --arch=x64 --out=dist --overwrite"
+  },
+  "keywords": ["terminal", "electron", "multi-terminal", "console"],
+  "author": "Fabririguetto",
+  "license": "MIT",
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "split.js": "^1.6.5",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+    "xterm-addon-web-links": "^0.9.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-packager": "^17.1.2",
+    "electron-rebuild": "^3.2.9"
+  }
+}
