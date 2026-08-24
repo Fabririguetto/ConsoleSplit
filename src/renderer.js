@@ -6,7 +6,7 @@ const api = window.electronAPI;
 
 const DEFAULT_SETTINGS = {
   fontSize:   13,
-  shell:      '',          // '' = use system default (COMSPEC)
+  shell:      '',
   defaultDir: 'C:\\',
   scrollback: 5000,
 };
@@ -19,10 +19,7 @@ function loadSettings() {
     return { ...DEFAULT_SETTINGS };
   }
 }
-
-function saveSettings(s) {
-  localStorage.setItem('consolesplit-settings', JSON.stringify(s));
-}
+function saveSettings(s) { localStorage.setItem('consolesplit-settings', JSON.stringify(s)); }
 
 let settings = loadSettings();
 
@@ -30,19 +27,18 @@ let settings = loadSettings();
 
 let tabs = [];
 let panes = {};
-let activeTabId = null;
+let activeTabId  = null;
 let activePaneId = null;
 let profiles = [];
 let commandHistory = [];
-let ptyIdCounter = 0;
-let tabIdCounter = 0;
+let ptyIdCounter  = 0;
+let tabIdCounter  = 0;
 let paneIdCounter = 0;
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 (async function init() {
   applyTranslations();
-
   setupWindowControls();
   setupGlobalShortcuts();
   setupTabBarButtons();
@@ -59,9 +55,7 @@ let paneIdCounter = 0;
 
   api.onPtyExit(({ id }) => {
     const pane = getPaneByPtyId(id);
-    if (pane) {
-      pane.term.write(`\r\n\x1b[31m${t('term.exit')}\x1b[0m\r\n`);
-    }
+    if (pane) pane.term.write(`\r\n\x1b[31m${t('term.exit')}\x1b[0m\r\n`);
   });
 
   createTab();
@@ -78,10 +72,7 @@ function newPtyId()  { return `pty-${++ptyIdCounter}`; }
 function getPaneByPtyId(ptyId) {
   return Object.values(panes).find(p => p.ptyId === ptyId) || null;
 }
-
-function getTab(tabId) {
-  return tabs.find(t => t.id === tabId);
-}
+function getTab(tabId) { return tabs.find(t => t.id === tabId); }
 
 // ── Modal system ──────────────────────────────────────────────────────────────
 
@@ -89,8 +80,9 @@ let _modalResolve = null;
 
 function openModal({ title, body, footerButtons }) {
   document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-body').innerHTML = '';
-  document.getElementById('modal-body').appendChild(body);
+  const mb = document.getElementById('modal-body');
+  mb.innerHTML = '';
+  mb.appendChild(body);
 
   const footer = document.getElementById('modal-footer');
   footer.innerHTML = '';
@@ -110,22 +102,18 @@ function closeModal() {
   if (_modalResolve) { _modalResolve(null); _modalResolve = null; }
 }
 
-// Returns a Promise<string|null> — replaces window.prompt()
 function promptModal(titleKey, placeholderKey) {
   return new Promise((resolve) => {
     _modalResolve = resolve;
 
     const body = document.createElement('div');
     body.className = 'modal-field';
-
     const label = document.createElement('label');
     label.textContent = t(titleKey);
-
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = t(placeholderKey);
     input.style.marginTop = '4px';
-
     body.appendChild(label);
     body.appendChild(input);
 
@@ -137,7 +125,7 @@ function promptModal(titleKey, placeholderKey) {
     };
 
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') commit();
+      if (e.key === 'Enter')  commit();
       if (e.key === 'Escape') { _modalResolve = null; closeModal(); resolve(null); }
     });
 
@@ -146,7 +134,7 @@ function promptModal(titleKey, placeholderKey) {
       body,
       footerButtons: [
         { label: t('modal.cancel'), onClick: () => { _modalResolve = null; closeModal(); resolve(null); } },
-        { label: t('modal.save'), primary: true, onClick: commit },
+        { label: t('modal.save'),   primary: true, onClick: commit },
       ],
     });
 
@@ -160,85 +148,54 @@ function openSettingsModal() {
   const s = { ...settings };
 
   const body = document.createElement('div');
-  body.style.display = 'flex';
-  body.style.flexDirection = 'column';
-  body.style.gap = '14px';
+  body.style.cssText = 'display:flex;flex-direction:column;gap:14px';
 
-  // Font size
   const fontField = document.createElement('div');
   fontField.className = 'modal-field';
   fontField.innerHTML = `<label>${t('settings.fontSize')}</label>`;
-  const rangeRow = document.createElement('div');
-  rangeRow.className = 'range-row';
+  const rr = document.createElement('div'); rr.className = 'range-row';
   const fontRange = document.createElement('input');
-  fontRange.type = 'range';
-  fontRange.min = 10; fontRange.max = 20; fontRange.step = 1;
-  fontRange.value = s.fontSize;
-  const fontVal = document.createElement('span');
-  fontVal.className = 'range-value';
-  fontVal.textContent = s.fontSize + 'px';
+  fontRange.type = 'range'; fontRange.min = 10; fontRange.max = 20; fontRange.value = s.fontSize;
+  const fontVal = document.createElement('span'); fontVal.className = 'range-value'; fontVal.textContent = s.fontSize + 'px';
   fontRange.oninput = () => { s.fontSize = +fontRange.value; fontVal.textContent = s.fontSize + 'px'; };
-  rangeRow.appendChild(fontRange);
-  rangeRow.appendChild(fontVal);
-  fontField.appendChild(rangeRow);
+  rr.appendChild(fontRange); rr.appendChild(fontVal); fontField.appendChild(rr);
 
-  // Shell
   const shellField = document.createElement('div');
   shellField.className = 'modal-field';
   shellField.innerHTML = `<label>${t('settings.shell')}</label>`;
   const shellSelect = document.createElement('select');
   [
-    { value: '',                   label: 'System default (cmd.exe)' },
-    { value: 'cmd.exe',            label: 'CMD (cmd.exe)' },
-    { value: 'powershell.exe',     label: 'Windows PowerShell' },
-    { value: 'pwsh.exe',           label: 'PowerShell 7 (pwsh)' },
+    { value: '',              label: 'System default (cmd.exe)' },
+    { value: 'cmd.exe',       label: 'CMD (cmd.exe)' },
+    { value: 'powershell.exe',label: 'Windows PowerShell' },
+    { value: 'pwsh.exe',      label: 'PowerShell 7 (pwsh)' },
   ].forEach(({ value, label }) => {
     const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = label;
-    opt.selected = s.shell === value;
+    opt.value = value; opt.textContent = label; opt.selected = s.shell === value;
     shellSelect.appendChild(opt);
   });
   shellSelect.onchange = () => { s.shell = shellSelect.value; };
   shellField.appendChild(shellSelect);
 
-  // Default dir
   const dirField = document.createElement('div');
   dirField.className = 'modal-field';
   dirField.innerHTML = `<label>${t('settings.defaultDir')}</label>`;
-  const dirRow = document.createElement('div');
-  dirRow.className = 'dir-row';
-  const dirInput = document.createElement('input');
-  dirInput.type = 'text';
-  dirInput.value = s.defaultDir;
+  const dirRow = document.createElement('div'); dirRow.className = 'dir-row';
+  const dirInput = document.createElement('input'); dirInput.type = 'text'; dirInput.value = s.defaultDir;
   dirInput.oninput = () => { s.defaultDir = dirInput.value; };
-  const dirBtn = document.createElement('button');
-  dirBtn.textContent = '📁';
-  dirBtn.onclick = async () => {
-    const d = await api.openDir();
-    if (d) { dirInput.value = d; s.defaultDir = d; }
-  };
-  dirRow.appendChild(dirInput);
-  dirRow.appendChild(dirBtn);
-  dirField.appendChild(dirRow);
+  const dirBtn = document.createElement('button'); dirBtn.textContent = '📁';
+  dirBtn.onclick = async () => { const d = await api.openDir(); if (d) { dirInput.value = d; s.defaultDir = d; } };
+  dirRow.appendChild(dirInput); dirRow.appendChild(dirBtn); dirField.appendChild(dirRow);
 
-  // Scrollback
   const scrollField = document.createElement('div');
   scrollField.className = 'modal-field';
   scrollField.innerHTML = `<label>${t('settings.scrollback')}</label>`;
-  const scrollRow = document.createElement('div');
-  scrollRow.className = 'range-row';
+  const sr = document.createElement('div'); sr.className = 'range-row';
   const scrollRange = document.createElement('input');
-  scrollRange.type = 'range';
-  scrollRange.min = 1000; scrollRange.max = 50000; scrollRange.step = 1000;
-  scrollRange.value = s.scrollback;
-  const scrollVal = document.createElement('span');
-  scrollVal.className = 'range-value';
-  scrollVal.textContent = s.scrollback.toLocaleString();
+  scrollRange.type = 'range'; scrollRange.min = 1000; scrollRange.max = 50000; scrollRange.step = 1000; scrollRange.value = s.scrollback;
+  const scrollVal = document.createElement('span'); scrollVal.className = 'range-value'; scrollVal.textContent = s.scrollback.toLocaleString();
   scrollRange.oninput = () => { s.scrollback = +scrollRange.value; scrollVal.textContent = s.scrollback.toLocaleString(); };
-  scrollRow.appendChild(scrollRange);
-  scrollRow.appendChild(scrollVal);
-  scrollField.appendChild(scrollRow);
+  sr.appendChild(scrollRange); sr.appendChild(scrollVal); scrollField.appendChild(sr);
 
   body.appendChild(fontField);
   body.appendChild(shellField);
@@ -250,15 +207,162 @@ function openSettingsModal() {
     body,
     footerButtons: [
       { label: t('settings.cancel'), onClick: closeModal },
-      {
-        label: t('settings.save'), primary: true, onClick: () => {
-          settings = s;
-          saveSettings(settings);
-          closeModal();
-        },
-      },
+      { label: t('settings.save'), primary: true, onClick: () => { settings = s; saveSettings(settings); closeModal(); } },
     ],
   });
+}
+
+// ── Grid layout engine ────────────────────────────────────────────────────────
+
+function toggleLayoutPicker() {
+  document.getElementById('layout-picker').classList.toggle('hidden');
+}
+
+function hideLayoutPicker() {
+  document.getElementById('layout-picker').classList.add('hidden');
+}
+
+function setupLayoutPicker() {
+  document.getElementById('btn-layout').onclick = (e) => {
+    e.stopPropagation();
+    toggleLayoutPicker();
+  };
+
+  document.querySelectorAll('.lp-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const layoutId = btn.dataset.layout;
+      hideLayoutPicker();
+      applyGridLayout(activeTabId, layoutId);
+    });
+  });
+
+  document.addEventListener('click', hideLayoutPicker);
+  document.getElementById('layout-picker').addEventListener('click', e => e.stopPropagation());
+}
+
+function destroyTabSplits(tab) {
+  (tab.splitInstances || []).forEach(s => { try { s.destroy(); } catch (_) {} });
+  tab.splitInstances = [];
+}
+
+function refitTabPanes(tabId) {
+  const tab = getTab(tabId);
+  if (!tab) return;
+  tab.panes.forEach(id => {
+    const p = panes[id];
+    if (p) {
+      try { p.fitAddon.fit(); api.ptyResize({ id: p.ptyId, cols: p.term.cols, rows: p.term.rows }); }
+      catch (_) {}
+    }
+  });
+}
+
+function makeSplit(elements, direction, onDragEnd) {
+  const sizes = elements.map(() => 100 / elements.length);
+  return Split(elements, { direction, sizes, minSize: 80, gutterSize: 4, onDragEnd });
+}
+
+function mkCol(parent) {
+  const div = document.createElement('div');
+  div.className = 'grid-col';
+  parent.appendChild(div);
+  return div;
+}
+
+async function applyGridLayout(tabId, layoutId) {
+  const tab = getTab(tabId);
+  if (!tab) return;
+
+  const oldPaths = tab.panes.map(id => panes[id]?.path || settings.defaultDir);
+
+  destroyTabSplits(tab);
+  [...tab.panes].forEach(id => destroyPane(id));
+  tab.panes = [];
+  tab.layoutId = layoutId;
+
+  const area = document.querySelector(`[data-tab-area="${tabId}"]`);
+  if (!area) return;
+  area.innerHTML = '';
+  area.style.flexDirection = 'row';
+
+  const def = settings.defaultDir || 'C:\\';
+  const path = (i) => oldPaths[i] || def;
+  const onRefit = () => requestAnimationFrame(() => refitTabPanes(tabId));
+
+  const mkPane = async (parent, cwd) => {
+    const id = await addPane(tabId, cwd, parent);
+    return panes[id];
+  };
+
+  switch (layoutId) {
+
+    case 'single': {
+      await mkPane(area, path(0));
+      break;
+    }
+
+    case 'cols2': {
+      const [a, b] = await Promise.all([mkPane(area, path(0)), mkPane(area, path(1))]);
+      tab.splitInstances.push(makeSplit([a.el, b.el], 'horizontal', onRefit));
+      break;
+    }
+
+    case 'rows2': {
+      area.style.flexDirection = 'column';
+      const [a, b] = await Promise.all([mkPane(area, path(0)), mkPane(area, path(1))]);
+      tab.splitInstances.push(makeSplit([a.el, b.el], 'vertical', onRefit));
+      break;
+    }
+
+    case 'grid22': {
+      const col1 = mkCol(area);
+      const col2 = mkCol(area);
+      const [a, b] = await Promise.all([mkPane(col1, path(0)), mkPane(col1, path(1))]);
+      const [c, d] = await Promise.all([mkPane(col2, path(2)), mkPane(col2, path(3))]);
+      tab.splitInstances.push(makeSplit([col1, col2], 'horizontal', onRefit));
+      tab.splitInstances.push(makeSplit([a.el, b.el], 'vertical',   onRefit));
+      tab.splitInstances.push(makeSplit([c.el, d.el], 'vertical',   onRefit));
+      break;
+    }
+
+    case 'cols3': {
+      const [a, b, c] = await Promise.all([mkPane(area, path(0)), mkPane(area, path(1)), mkPane(area, path(2))]);
+      tab.splitInstances.push(makeSplit([a.el, b.el, c.el], 'horizontal', onRefit));
+      break;
+    }
+
+    case 'rows3': {
+      area.style.flexDirection = 'column';
+      const [a, b, c] = await Promise.all([mkPane(area, path(0)), mkPane(area, path(1)), mkPane(area, path(2))]);
+      tab.splitInstances.push(makeSplit([a.el, b.el, c.el], 'vertical', onRefit));
+      break;
+    }
+
+    case 'main-r2': {
+      const left  = mkCol(area);
+      const right = mkCol(area);
+      const a = await mkPane(left, path(0));
+      const [b, c] = await Promise.all([mkPane(right, path(1)), mkPane(right, path(2))]);
+      tab.splitInstances.push(makeSplit([left, right], 'horizontal', onRefit));
+      tab.splitInstances.push(makeSplit([b.el, c.el],  'vertical',   onRefit));
+      try { tab.splitInstances[0].setSizes([60, 40]); } catch (_) {}
+      break;
+    }
+
+    case 'l2-main': {
+      const left  = mkCol(area);
+      const right = mkCol(area);
+      const [a, b] = await Promise.all([mkPane(left, path(0)), mkPane(left, path(1))]);
+      const c = await mkPane(right, path(2));
+      tab.splitInstances.push(makeSplit([left, right], 'horizontal', onRefit));
+      tab.splitInstances.push(makeSplit([a.el, b.el],  'vertical',   onRefit));
+      try { tab.splitInstances[0].setSizes([40, 60]); } catch (_) {}
+      break;
+    }
+  }
+
+  setTimeout(() => refitTabPanes(tabId), 80);
+  if (tab.panes.length > 0) setActivePane(tab.panes[0]);
 }
 
 // ── Redirect all consoles ─────────────────────────────────────────────────────
@@ -266,10 +370,8 @@ function openSettingsModal() {
 async function redirectAllConsoles() {
   const newDir = await api.openDir();
   if (!newDir) return;
-
   Object.values(panes).forEach(pane => {
     pane.path = newDir;
-    // Update topbar path label
     const pathSpan = pane.el.querySelector('.pane-path');
     if (pathSpan) { pathSpan.textContent = newDir; pathSpan.title = newDir; }
     api.ptyWrite({ id: pane.ptyId, data: `cd /d "${newDir}"\r` });
@@ -294,11 +396,11 @@ function setupGlobalShortcuts() {
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 't') { e.preventDefault(); createTab(); }
     if (e.ctrlKey && e.key === 'w') { e.preventDefault(); closeActiveTab(); }
-    if (e.ctrlKey && e.shiftKey && e.key === 'H') { e.preventDefault(); splitActivePane('horizontal'); }
-    if (e.ctrlKey && e.shiftKey && e.key === 'V') { e.preventDefault(); splitActivePane('vertical'); }
+    if (e.ctrlKey && e.shiftKey && e.key === 'H') { e.preventDefault(); simpleSplit('horizontal'); }
+    if (e.ctrlKey && e.shiftKey && e.key === 'V') { e.preventDefault(); simpleSplit('vertical'); }
     if (e.ctrlKey && e.shiftKey && e.key === 'S') { e.preventDefault(); saveCurrentAsProfile(); }
     if (e.ctrlKey && e.shiftKey && e.key === 'G') { e.preventDefault(); redirectAllConsoles(); }
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape') { closeModal(); hideLayoutPicker(); }
   });
 }
 
@@ -306,9 +408,8 @@ function setupGlobalShortcuts() {
 
 function setupTabBarButtons() {
   document.getElementById('btn-new-tab').onclick        = () => createTab();
-  document.getElementById('btn-split').onclick          = () => splitActivePane();
-  document.getElementById('btn-split-h').onclick        = () => splitActivePane('horizontal');
-  document.getElementById('btn-split-v').onclick        = () => splitActivePane('vertical');
+  document.getElementById('btn-split-h').onclick        = () => simpleSplit('horizontal');
+  document.getElementById('btn-split-v').onclick        = () => simpleSplit('vertical');
   document.getElementById('btn-redirect-all').onclick   = redirectAllConsoles;
   document.getElementById('btn-save-profile').onclick   = saveCurrentAsProfile;
   document.getElementById('btn-toggle-sidebar').onclick = toggleSidebar;
@@ -320,6 +421,7 @@ function setupTabBarButtons() {
     renderProfiles();
     renderHistory();
   };
+  setupLayoutPicker();
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -330,51 +432,41 @@ async function createTab(label = null, cwdOverride = null) {
     id: tabId,
     label: label || `${t('tab.defaultName')} ${tabs.length + 1}`,
     panes: [],
-    splitMode: null,
-    splitInstance: null,
+    splitInstances: [],
+    layoutId: 'single',
   };
   tabs.push(tab);
   activeTabId = tabId;
-
   renderTabBar();
 
   const cwd = cwdOverride || settings.defaultDir || 'C:\\';
   await addPane(tabId, cwd);
-
   return tabId;
 }
 
 function activateTab(tabId) {
   activeTabId = tabId;
-
   document.querySelectorAll('[data-tab-area]').forEach(el => {
     el.style.display = el.dataset.tabArea === tabId ? 'flex' : 'none';
   });
-
   renderTabBar();
-
   const tab = getTab(tabId);
-  if (tab && tab.panes.length > 0) {
-    setActivePane(tab.panes[0]);
-  }
+  if (tab && tab.panes.length > 0) setActivePane(tab.panes[0]);
 }
 
 function closeActiveTab() {
   if (tabs.length <= 1) return;
-  const tabId = activeTabId;
-  const tab = getTab(tabId);
+  const tab = getTab(activeTabId);
   if (!tab) return;
 
-  tab.panes.forEach(paneId => destroyPane(paneId));
+  destroyTabSplits(tab);
+  tab.panes.forEach(id => destroyPane(id));
 
-  const area = document.querySelector(`[data-tab-area="${tabId}"]`);
+  const area = document.querySelector(`[data-tab-area="${tab.id}"]`);
   if (area) area.remove();
+  tabs = tabs.filter(t => t.id !== tab.id);
 
-  tabs = tabs.filter(t => t.id !== tabId);
-
-  if (tabs.length > 0) {
-    activateTab(tabs[tabs.length - 1].id);
-  }
+  if (tabs.length > 0) activateTab(tabs[tabs.length - 1].id);
   renderTabBar();
 }
 
@@ -400,8 +492,7 @@ function renderTabBar() {
       input.className = 'tab-label-input';
       input.value = tab.label;
       label.replaceWith(input);
-      input.focus();
-      input.select();
+      input.focus(); input.select();
 
       const commit = () => {
         tab.label = input.value.trim() || tab.label;
@@ -410,7 +501,7 @@ function renderTabBar() {
       };
       input.addEventListener('blur', commit);
       input.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter') input.blur();
+        if (ev.key === 'Enter')  input.blur();
         if (ev.key === 'Escape') { input.value = tab.label; input.blur(); }
       });
     });
@@ -428,7 +519,7 @@ function renderTabBar() {
         if (other) activateTab(other.id);
       }
       const tObj = getTab(closing);
-      if (tObj) tObj.panes.forEach(paneId => destroyPane(paneId));
+      if (tObj) { destroyTabSplits(tObj); tObj.panes.forEach(id => destroyPane(id)); }
       const area = document.querySelector(`[data-tab-area="${closing}"]`);
       if (area) area.remove();
       tabs = tabs.filter(t => t.id !== closing);
@@ -445,7 +536,7 @@ function renderTabBar() {
 
 // ── Panes ─────────────────────────────────────────────────────────────────────
 
-async function addPane(tabId, cwd) {
+async function addPane(tabId, cwd, parentEl = null) {
   const paneId = newPaneId();
   const ptyId  = newPtyId();
   const tab    = getTab(tabId);
@@ -493,15 +584,19 @@ async function addPane(tabId, cwd) {
   paneEl.appendChild(topbar);
   paneEl.appendChild(xtermContainer);
 
-  let area = document.querySelector(`[data-tab-area="${tabId}"]`);
-  if (!area) {
-    area = document.createElement('div');
-    area.className = 'pane-wrapper';
-    area.dataset.tabArea = tabId;
-    area.style.display = 'flex';
-    document.getElementById('terminal-area').appendChild(area);
+  if (parentEl) {
+    parentEl.appendChild(paneEl);
+  } else {
+    let area = document.querySelector(`[data-tab-area="${tabId}"]`);
+    if (!area) {
+      area = document.createElement('div');
+      area.className = 'pane-wrapper';
+      area.dataset.tabArea = tabId;
+      area.style.display = 'flex';
+      document.getElementById('terminal-area').appendChild(area);
+    }
+    area.appendChild(paneEl);
   }
-  area.appendChild(paneEl);
 
   document.querySelectorAll('[data-tab-area]').forEach(el => {
     el.style.display = el.dataset.tabArea === activeTabId ? 'flex' : 'none';
@@ -509,33 +604,27 @@ async function addPane(tabId, cwd) {
 
   const term = new Terminal({
     theme: {
-      background:   '#0d0d1a',
-      foreground:   '#e0e0f0',
-      cursor:       '#7c6af7',
-      cursorAccent: '#0d0d1a',
+      background: '#0d0d1a', foreground: '#e0e0f0',
+      cursor: '#7c6af7', cursorAccent: '#0d0d1a',
       selectionBackground: 'rgba(124,106,247,0.3)',
-      black:   '#1a1a2e', red:     '#e05c6a',
-      green:   '#56cfbc', yellow:  '#f5c542',
-      blue:    '#7c6af7', magenta: '#c56af5',
-      cyan:    '#56cfbc', white:   '#e0e0f0',
-      brightBlack:   '#44445a', brightRed:     '#ff7b85',
-      brightGreen:   '#7dffd3', brightYellow:  '#ffd27d',
-      brightBlue:    '#a08fff', brightMagenta: '#e08fff',
-      brightCyan:    '#7dffd3', brightWhite:   '#ffffff',
+      black: '#1a1a2e', red: '#e05c6a', green: '#56cfbc', yellow: '#f5c542',
+      blue: '#7c6af7', magenta: '#c56af5', cyan: '#56cfbc', white: '#e0e0f0',
+      brightBlack: '#44445a', brightRed: '#ff7b85', brightGreen: '#7dffd3',
+      brightYellow: '#ffd27d', brightBlue: '#a08fff', brightMagenta: '#e08fff',
+      brightCyan: '#7dffd3', brightWhite: '#ffffff',
     },
-    fontFamily: "'Cascadia Code', 'Cascadia Mono', 'Consolas', monospace",
-    fontSize:   settings.fontSize,
-    lineHeight: 1.35,
-    scrollback: settings.scrollback,
+    fontFamily:  "'Cascadia Code','Cascadia Mono','Consolas',monospace",
+    fontSize:    settings.fontSize,
+    lineHeight:  1.35,
+    scrollback:  settings.scrollback,
     allowProposedApi: true,
     cursorBlink: true,
     cursorStyle: 'bar',
     windowsMode: true,
-    macOptionIsMeta: false,
     rightClickSelectsWord: false,
   });
 
-  const fitAddon = new FitAddon.FitAddon();
+  const fitAddon   = new FitAddon.FitAddon();
   const linksAddon = new WebLinksAddon.WebLinksAddon();
   term.loadAddon(fitAddon);
   term.loadAddon(linksAddon);
@@ -560,10 +649,8 @@ async function addPane(tabId, cwd) {
   xtermContainer.addEventListener('contextmenu', async (e) => {
     e.preventDefault();
     const sel = term.getSelection();
-    if (sel) {
-      await navigator.clipboard.writeText(sel);
-      term.clearSelection();
-    } else {
+    if (sel) { await navigator.clipboard.writeText(sel); term.clearSelection(); }
+    else {
       const text = await navigator.clipboard.readText().catch(() => '');
       if (text) api.ptyWrite({ id: ptyId, data: text });
     }
@@ -588,31 +675,22 @@ async function addPane(tabId, cwd) {
   panes[paneId] = { term, fitAddon, ptyId, path: cwd, tabId, el: paneEl };
   tab.panes.push(paneId);
 
-  const result = await api.ptyCreate({
-    id: ptyId,
-    cwd,
-    shell: settings.shell || undefined,
-  });
+  const result = await api.ptyCreate({ id: ptyId, cwd, shell: settings.shell || undefined });
   if (!result.success) {
     term.write(`\x1b[31m${t('term.error')} ${result.error}\x1b[0m\r\n`);
   }
 
   requestAnimationFrame(() => {
-    try {
-      fitAddon.fit();
-      api.ptyResize({ id: ptyId, cols: term.cols, rows: term.rows });
-    } catch (_) {}
+    try { fitAddon.fit(); api.ptyResize({ id: ptyId, cols: term.cols, rows: term.rows }); }
+    catch (_) {}
   });
 
   setActivePane(paneId);
 
-  const ro = new ResizeObserver(() => {
-    try {
-      fitAddon.fit();
-      api.ptyResize({ id: ptyId, cols: term.cols, rows: term.rows });
-    } catch (_) {}
-  });
-  ro.observe(paneEl);
+  new ResizeObserver(() => {
+    try { fitAddon.fit(); api.ptyResize({ id: ptyId, cols: term.cols, rows: term.rows }); }
+    catch (_) {}
+  }).observe(paneEl);
 
   return paneId;
 }
@@ -638,160 +716,98 @@ function destroyPane(paneId) {
 function closePaneInTab(tabId, paneId) {
   const tab = getTab(tabId);
   if (!tab || tab.panes.length <= 1) return;
-
   destroyPane(paneId);
   tab.panes = tab.panes.filter(id => id !== paneId);
-
-  rebuildTabLayout(tabId);
-
-  if (activePaneId === paneId && tab.panes.length > 0) {
-    setActivePane(tab.panes[0]);
+  destroyTabSplits(tab);
+  const area = document.querySelector(`[data-tab-area="${tabId}"]`);
+  if (area) {
+    const paneEls = tab.panes.map(id => panes[id]?.el).filter(Boolean);
+    area.innerHTML = '';
+    area.style.flexDirection = 'row';
+    paneEls.forEach(el => area.appendChild(el));
+    if (tab.panes.length > 1) {
+      tab.splitInstances.push(makeSplit(
+        paneEls, 'horizontal',
+        () => requestAnimationFrame(() => refitTabPanes(tabId))
+      ));
+    }
   }
+  if (activePaneId === paneId && tab.panes.length > 0) setActivePane(tab.panes[0]);
 }
 
-// ── Split panes ───────────────────────────────────────────────────────────────
+// ── Simple split (H/V toolbar buttons) ───────────────────────────────────────
 
-function autoDetectSplitDirection() {
-  const pane = panes[activePaneId];
-  if (!pane) return 'horizontal';
-  const { width, height } = pane.el.getBoundingClientRect();
-  return width >= height ? 'horizontal' : 'vertical';
-}
-
-async function splitActivePane(direction = null) {
+async function simpleSplit(direction) {
   if (!activePaneId || !activeTabId) return;
   const tab = getTab(activeTabId);
   if (!tab) return;
 
-  const resolvedDir = direction || autoDetectSplitDirection();
-  const activePanePath = panes[activePaneId]?.path || settings.defaultDir;
-  await addPane(activeTabId, activePanePath);
+  const cwd = panes[activePaneId]?.path || settings.defaultDir;
+  destroyTabSplits(tab);
 
-  tab.splitMode = resolvedDir;
-  rebuildTabLayout(activeTabId);
-}
-
-function rebuildTabLayout(tabId) {
-  const tab = getTab(tabId);
-  if (!tab) return;
-
-  const area = document.querySelector(`[data-tab-area="${tabId}"]`);
-  if (!area) return;
-
-  area.style.flexDirection = tab.splitMode === 'vertical' ? 'column' : 'row';
-
-  tab.panes.forEach(paneId => {
-    const pane = panes[paneId];
-    if (pane) area.appendChild(pane.el);
-  });
-
-  if (tab.splitInstance) {
-    try { tab.splitInstance.destroy(); } catch (_) {}
-    tab.splitInstance = null;
+  const area = document.querySelector(`[data-tab-area="${activeTabId}"]`);
+  if (area) {
+    // Wipe area to remove any stale grid-col wrappers, then re-attach existing panes
+    const paneEls = tab.panes.map(id => panes[id]?.el).filter(Boolean);
+    area.innerHTML = '';
+    area.style.flexDirection = direction === 'vertical' ? 'column' : 'row';
+    paneEls.forEach(el => area.appendChild(el));
   }
 
-  if (tab.panes.length > 1) {
-    const elements = tab.panes.map(id => panes[id]?.el).filter(Boolean);
-    const sizes = elements.map(() => 100 / elements.length);
+  await addPane(activeTabId, cwd);
 
-    tab.splitInstance = Split(elements, {
-      direction: tab.splitMode === 'vertical' ? 'vertical' : 'horizontal',
-      sizes,
-      minSize: 100,
-      gutterSize: 4,
-      onDragEnd: () => {
-        tab.panes.forEach(id => {
-          const p = panes[id];
-          if (p) {
-            try {
-              p.fitAddon.fit();
-              api.ptyResize({ id: p.ptyId, cols: p.term.cols, rows: p.term.rows });
-            } catch (_) {}
-          }
-        });
-      },
-    });
+  const elements = tab.panes.map(id => panes[id]?.el).filter(Boolean);
+  if (elements.length > 1) {
+    tab.splitInstances.push(makeSplit(elements, direction,
+      () => requestAnimationFrame(() => refitTabPanes(activeTabId))
+    ));
   }
-
-  requestAnimationFrame(() => {
-    tab.panes.forEach(id => {
-      const p = panes[id];
-      if (p) {
-        try {
-          p.fitAddon.fit();
-          api.ptyResize({ id: p.ptyId, cols: p.term.cols, rows: p.term.rows });
-        } catch (_) {}
-      }
-    });
-  });
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
 
 function addToHistory(cmd, tabLabel) {
-  const now = new Date();
-  const time = now.toTimeString().slice(0, 5);
+  const time = new Date().toTimeString().slice(0, 5);
   commandHistory.unshift({ time, tabLabel, cmd });
   renderHistory();
 }
 
 function renderHistory() {
-  const list = document.getElementById('history-list');
+  const list   = document.getElementById('history-list');
   const filter = document.getElementById('history-search').value.toLowerCase();
   list.innerHTML = '';
   commandHistory.forEach((item) => {
     const li = document.createElement('li');
-    li.className = 'history-item' + (filter && !item.cmd.toLowerCase().includes(filter) ? ' hidden' : '');
+    li.className = 'history-item';
+    if (filter && !item.cmd.toLowerCase().includes(filter)) li.style.display = 'none';
     li.title = t('history.rerun');
 
-    const time = document.createElement('span');
-    time.className = 'hi-time';
-    time.textContent = item.time;
+    const time  = document.createElement('span'); time.className  = 'hi-time'; time.textContent  = item.time;
+    const tabEl = document.createElement('span'); tabEl.className = 'hi-tab';  tabEl.textContent = item.tabLabel;
+    const cmd   = document.createElement('span'); cmd.className   = 'hi-cmd';  cmd.textContent   = item.cmd;
 
-    const tabEl = document.createElement('span');
-    tabEl.className = 'hi-tab';
-    tabEl.textContent = item.tabLabel;
-
-    const cmd = document.createElement('span');
-    cmd.className = 'hi-cmd';
-    cmd.textContent = item.cmd;
-
-    li.appendChild(time);
-    li.appendChild(tabEl);
-    li.appendChild(cmd);
-
+    li.appendChild(time); li.appendChild(tabEl); li.appendChild(cmd);
     li.addEventListener('click', () => {
       if (activePaneId && panes[activePaneId]) {
         api.ptyWrite({ id: panes[activePaneId].ptyId, data: item.cmd + '\r' });
       }
     });
-
     list.appendChild(li);
   });
 }
 
 function setupHistoryUI() {
   document.getElementById('history-search').addEventListener('input', renderHistory);
-  document.getElementById('btn-clear-history').onclick = () => {
-    commandHistory = [];
-    renderHistory();
-  };
+  document.getElementById('btn-clear-history').onclick = () => { commandHistory = []; renderHistory(); };
   document.getElementById('btn-close-history').onclick = toggleHistory;
 }
 
 function toggleHistory() {
   document.getElementById('history-panel').classList.toggle('collapsed');
-  setTimeout(() => {
-    Object.values(panes).forEach(p => {
-      try {
-        p.fitAddon.fit();
-        api.ptyResize({ id: p.ptyId, cols: p.term.cols, rows: p.term.rows });
-      } catch (_) {}
-    });
-  }, 220);
+  setTimeout(() => refitTabPanes(activeTabId), 220);
 }
 
-// ── Profiles ──────────────────────────────────────────────────────────────────
+// ── Profiles / Sidebar ────────────────────────────────────────────────────────
 
 function setupSidebarUI() {
   document.getElementById('btn-add-profile').onclick = saveCurrentAsProfile;
@@ -799,14 +815,7 @@ function setupSidebarUI() {
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('collapsed');
-  setTimeout(() => {
-    Object.values(panes).forEach(p => {
-      try {
-        p.fitAddon.fit();
-        api.ptyResize({ id: p.ptyId, cols: p.term.cols, rows: p.term.rows });
-      } catch (_) {}
-    });
-  }, 220);
+  setTimeout(() => refitTabPanes(activeTabId), 220);
 }
 
 async function saveCurrentAsProfile() {
@@ -814,10 +823,9 @@ async function saveCurrentAsProfile() {
   if (!name) return;
 
   const snapshot = tabs.map(tab => ({
-    label: tab.label,
-    panes: tab.panes.map(paneId => ({
-      path: panes[paneId]?.path || settings.defaultDir,
-    })),
+    label:    tab.label,
+    layoutId: tab.layoutId || 'single',
+    panes: tab.panes.map(id => ({ path: panes[id]?.path || settings.defaultDir })),
   }));
 
   profiles.push({ name, tabs: snapshot, created: new Date().toISOString() });
@@ -828,43 +836,50 @@ async function saveCurrentAsProfile() {
 async function loadProfile(profile) {
   while (tabs.length > 1) {
     const last = tabs[tabs.length - 1];
-    last.panes.forEach(paneId => destroyPane(paneId));
+    destroyTabSplits(last);
+    last.panes.forEach(id => destroyPane(id));
     const area = document.querySelector(`[data-tab-area="${last.id}"]`);
     if (area) area.remove();
     tabs.pop();
   }
   if (tabs.length === 1) {
     const tObj = tabs[0];
-    tObj.panes.forEach(paneId => destroyPane(paneId));
-    const area = document.querySelector(`[data-tab-area="${tObj.id}"]`);
-    if (area) area.innerHTML = '';
+    destroyTabSplits(tObj);
+    tObj.panes.forEach(id => destroyPane(id));
     tObj.panes = [];
+    tObj.splitInstances = [];
+    const area = document.querySelector(`[data-tab-area="${tObj.id}"]`);
+    if (area) { area.innerHTML = ''; area.style.flexDirection = 'row'; }
     tObj.label = profile.tabs[0]?.label || `${t('tab.defaultName')} 1`;
   }
 
   for (let i = 0; i < profile.tabs.length; i++) {
     const snap = profile.tabs[i];
-    let tabId;
+    const paths = snap.panes.map(p => p.path);
+
     if (i === 0 && tabs.length === 1) {
-      tabId = tabs[0].id;
       tabs[0].label = snap.label;
-      activeTabId = tabId;
-      for (const paneSnap of snap.panes) {
-        await addPane(tabId, paneSnap.path);
-      }
-      if (snap.panes.length > 1) {
-        getTab(tabId).splitMode = 'horizontal';
-        rebuildTabLayout(tabId);
-      }
+      activeTabId = tabs[0].id;
+      await applyGridLayout(tabs[0].id, snap.layoutId || 'single');
+      tabs[0].panes.forEach((paneId, j) => {
+        if (paths[j] && panes[paneId]) {
+          panes[paneId].path = paths[j];
+          api.ptyWrite({ id: panes[paneId].ptyId, data: `cd /d "${paths[j]}"\r` });
+          const ps = panes[paneId].el.querySelector('.pane-path');
+          if (ps) { ps.textContent = paths[j]; ps.title = paths[j]; }
+        }
+      });
     } else {
-      tabId = await createTab(snap.label, snap.panes[0]?.path);
-      for (let j = 1; j < snap.panes.length; j++) {
-        await addPane(tabId, snap.panes[j].path);
-      }
-      if (snap.panes.length > 1) {
-        getTab(tabId).splitMode = 'horizontal';
-        rebuildTabLayout(tabId);
-      }
+      const tabId = await createTab(snap.label);
+      await applyGridLayout(tabId, snap.layoutId || 'single');
+      getTab(tabId).panes.forEach((paneId, j) => {
+        if (paths[j] && panes[paneId]) {
+          panes[paneId].path = paths[j];
+          api.ptyWrite({ id: panes[paneId].ptyId, data: `cd /d "${paths[j]}"\r` });
+          const ps = panes[paneId].el.querySelector('.pane-path');
+          if (ps) { ps.textContent = paths[j]; ps.title = paths[j]; }
+        }
+      });
     }
   }
 
@@ -908,9 +923,7 @@ function renderProfiles() {
     delBtn.title = t('sidebar.delete');
     delBtn.onclick = (e) => { e.stopPropagation(); deleteProfile(idx); };
 
-    li.appendChild(name);
-    li.appendChild(tabCount);
-    li.appendChild(delBtn);
+    li.appendChild(name); li.appendChild(tabCount); li.appendChild(delBtn);
     li.onclick = () => loadProfile(profile);
     list.appendChild(li);
   });
