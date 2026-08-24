@@ -305,6 +305,9 @@ async function addPane(tabId, cwd) {
     allowProposedApi: true,
     cursorBlink: true,
     cursorStyle: 'bar',
+    windowsMode: true,
+    macOptionIsMeta: false,
+    rightClickSelectsWord: false,
   });
 
   const fitAddon = new FitAddon.FitAddon();
@@ -312,6 +315,36 @@ async function addPane(tabId, cwd) {
   term.loadAddon(fitAddon);
   term.loadAddon(linksAddon);
   term.open(xtermContainer);
+
+  // Ctrl+Shift+C → copy, Ctrl+Shift+V → paste
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.type !== 'keydown') return true;
+    if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+      const sel = term.getSelection();
+      if (sel) navigator.clipboard.writeText(sel);
+      return false;
+    }
+    if (e.ctrlKey && e.shiftKey && e.key === 'V') {
+      navigator.clipboard.readText().then(text => {
+        if (text) api.ptyWrite({ id: ptyId, data: text });
+      });
+      return false;
+    }
+    return true;
+  });
+
+  // Right-click: copy if selection, paste if not
+  xtermContainer.addEventListener('contextmenu', async (e) => {
+    e.preventDefault();
+    const sel = term.getSelection();
+    if (sel) {
+      await navigator.clipboard.writeText(sel);
+      term.clearSelection();
+    } else {
+      const text = await navigator.clipboard.readText().catch(() => '');
+      if (text) api.ptyWrite({ id: ptyId, data: text });
+    }
+  });
 
   // Intercept typed commands for history
   let lineBuffer = '';
