@@ -75,6 +75,7 @@ function setupGlobalShortcuts() {
     if (e.ctrlKey && e.key === 'w') { e.preventDefault(); closeActiveTab(); }
     if (e.ctrlKey && e.shiftKey && e.key === 'H') { e.preventDefault(); splitActivePane('horizontal'); }
     if (e.ctrlKey && e.shiftKey && e.key === 'V') { e.preventDefault(); splitActivePane('vertical'); }
+    if (e.ctrlKey && e.shiftKey && e.key === 'S') { e.preventDefault(); saveCurrentAsProfile(); }
   });
 }
 
@@ -82,13 +83,14 @@ function setupGlobalShortcuts() {
 
 function setupTabBarButtons() {
   document.getElementById('btn-new-tab').onclick        = () => createTab();
+  document.getElementById('btn-split').onclick          = () => splitActivePane();
   document.getElementById('btn-split-h').onclick        = () => splitActivePane('horizontal');
   document.getElementById('btn-split-v').onclick        = () => splitActivePane('vertical');
+  document.getElementById('btn-save-profile').onclick   = saveCurrentAsProfile;
   document.getElementById('btn-toggle-sidebar').onclick = toggleSidebar;
   document.getElementById('btn-toggle-history').onclick = toggleHistory;
   document.getElementById('btn-lang').onclick           = () => {
     cycleLang();
-    // Re-render dynamic UI with new language
     renderTabBar();
     renderProfiles();
     renderHistory();
@@ -425,18 +427,24 @@ function closePaneInTab(tabId, paneId) {
 
 // ── Split panes ───────────────────────────────────────────────────────────────
 
-async function splitActivePane(direction) {
+function autoDetectSplitDirection() {
+  const pane = panes[activePaneId];
+  if (!pane) return 'horizontal';
+  const { width, height } = pane.el.getBoundingClientRect();
+  return width >= height ? 'horizontal' : 'vertical';
+}
+
+async function splitActivePane(direction = null) {
   if (!activePaneId || !activeTabId) return;
   const tab = getTab(activeTabId);
   if (!tab) return;
 
+  const resolvedDir = direction || autoDetectSplitDirection();
   const activePanePath = panes[activePaneId]?.path || 'C:\\';
-  const newPId = await addPane(activeTabId, activePanePath);
+  await addPane(activeTabId, activePanePath);
 
-  tab.splitMode = direction;
+  tab.splitMode = resolvedDir;
   rebuildTabLayout(activeTabId);
-
-  return newPId;
 }
 
 function rebuildTabLayout(tabId) {

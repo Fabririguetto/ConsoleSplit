@@ -284,6 +284,16 @@ html, body {
 }
 #tab-actions button:hover { background: var(--bg-hover); color: var(--accent); }
 
+#btn-split { font-size: 15px !important; color: var(--accent2) !important; }
+#btn-split:hover { color: var(--accent) !important; }
+
+#btn-split-h,
+#btn-split-v { font-size: 10px !important; padding: 0 7px !important; opacity: .6; }
+#btn-split-h:hover,
+#btn-split-v:hover { opacity: 1; }
+
+#btn-save-profile { font-size: 14px !important; }
+
 #btn-lang {
   font-size: 11px !important;
   font-weight: 700;
