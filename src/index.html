@@ -41,7 +41,11 @@
     <aside id="sidebar" class="collapsed">
       <div id="sidebar-header">
         <span data-i18n="sidebar.title">Perfiles</span>
-        <button id="btn-add-profile" data-i18n-title="sidebar.add">＋</button>
+        <button id="btn-add-profile" data-i18n-title="sidebar.add">
+          <svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/>
+          </svg>
+        </button>
       </div>
       <ul id="profile-list"></ul>
     </aside>
@@ -52,7 +56,11 @@
       <!-- Tab bar -->
       <div id="tab-bar">
         <div id="tabs-container"></div>
-        <button id="btn-new-tab" data-i18n-title="tab.new">＋</button>
+        <button id="btn-new-tab" data-i18n-title="tab.new">
+          <svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <line x1="8" y1="2" x2="8" y2="14"/><line x1="2" y1="8" x2="14" y2="8"/>
+          </svg>
+        </button>
         <!-- Layout picker popup -->
         <div id="layout-picker" class="hidden">
           <div class="lp-grid">
@@ -92,14 +100,60 @@
         </div>
 
         <div id="tab-actions">
-          <button id="btn-layout"         data-i18n-title="btn.layout">⊞</button>
-          <button id="btn-split-h"        data-i18n-title="btn.splitH">▌</button>
-          <button id="btn-split-v"        data-i18n-title="btn.splitV">▀</button>
-          <button id="btn-redirect-all"   data-i18n-title="btn.redirectAll">📂→</button>
-          <button id="btn-save-profile"   data-i18n-title="btn.saveProfile">💾</button>
-          <button id="btn-toggle-sidebar" data-i18n-title="btn.sidebar">☰</button>
-          <button id="btn-toggle-history" data-i18n-title="btn.history">⏱</button>
-          <button id="btn-settings"       data-i18n-title="btn.settings">⚙</button>
+          <!-- Grid layout picker -->
+          <button id="btn-layout" data-i18n-title="btn.layout">
+            <svg viewBox="0 0 16 16" width="1em" height="1em" fill="currentColor" aria-hidden="true">
+              <path d="M1 1h6v6H1V1zm8 0h6v6H9V1zM1 9h6v6H1V9zm8 0h6v6H9V9z"/>
+            </svg>
+          </button>
+          <!-- Split vertical divider (two columns) -->
+          <button id="btn-split-h" data-i18n-title="btn.splitH">
+            <svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <rect x="1" y="1" width="14" height="14" rx="1.5"/>
+              <line x1="8" y1="1" x2="8" y2="15"/>
+            </svg>
+          </button>
+          <!-- Split horizontal divider (two rows) -->
+          <button id="btn-split-v" data-i18n-title="btn.splitV">
+            <svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <rect x="1" y="1" width="14" height="14" rx="1.5"/>
+              <line x1="1" y1="8" x2="15" y2="8"/>
+            </svg>
+          </button>
+          <!-- Redirect all consoles (folder + arrow) -->
+          <button id="btn-redirect-all" data-i18n-title="btn.redirectAll">
+            <svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M1 5a1 1 0 011-1h3l1.5 1.5H13a1 1 0 011 1v5a1 1 0 01-1 1H2a1 1 0 01-1-1V5z"/>
+              <path d="M8.5 8.5h3.5M10.5 7l1.5 1.5-1.5 1.5"/>
+            </svg>
+          </button>
+          <!-- Save profile (bookmark) -->
+          <button id="btn-save-profile" data-i18n-title="btn.saveProfile">
+            <svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 1.5h10v13L8 12l-5 2.5V1.5z"/>
+            </svg>
+          </button>
+          <!-- Toggle sidebar (panel left) -->
+          <button id="btn-toggle-sidebar" data-i18n-title="btn.sidebar">
+            <svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <rect x="1" y="1" width="14" height="14" rx="1.5"/>
+              <line x1="5.5" y1="1" x2="5.5" y2="15"/>
+            </svg>
+          </button>
+          <!-- Toggle history (clock) -->
+          <button id="btn-toggle-history" data-i18n-title="btn.history">
+            <svg viewBox="0 0 16 16" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.5"/>
+              <polyline points="8,4.5 8,8.5 10.5,10"/>
+            </svg>
+          </button>
+          <!-- Settings (gear) -->
+          <button id="btn-settings" data-i18n-title="btn.settings">
+            <svg viewBox="0 0 16 16" width="1em" height="1em" fill="currentColor" aria-hidden="true">
+              <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+              <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
+            </svg>
+          </button>
           <button id="btn-lang" title="Language / Idioma">ES</button>
         </div>
       </div>
@@ -115,7 +169,12 @@
             <input id="history-search" type="text"
               data-i18n-placeholder="history.filter"
               placeholder="Filtrar comandos..." />
-            <button id="btn-clear-history" data-i18n-title="history.clear">🗑</button>
+            <button id="btn-clear-history" data-i18n-title="history.clear">
+              <svg viewBox="0 0 16 16" width="1em" height="1em" fill="currentColor" aria-hidden="true">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+              </svg>
+            </button>
             <button id="btn-close-history" data-i18n-title="history.close">✕</button>
           </div>
         </div>
