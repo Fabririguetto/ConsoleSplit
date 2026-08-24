@@ -24,4 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Directory picker
   openDir: () => ipcRenderer.invoke('dialog:openDir'),
+
+  // Git
+  getGitBranch: (cwd) => ipcRenderer.invoke('git:branch', cwd),
 });

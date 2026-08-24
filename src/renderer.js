@@ -2,6 +2,51 @@
 
 const api = window.electronAPI;
 
+// ── Themes ────────────────────────────────────────────────────────────────────
+
+const THEMES = {
+  dark: {
+    background: '#0d0d1a', foreground: '#e0e0f0',
+    cursor: '#7c6af7', cursorAccent: '#0d0d1a',
+    selectionBackground: 'rgba(124,106,247,0.3)',
+    black: '#1a1a2e', red: '#e05c6a', green: '#56cfbc', yellow: '#f5c542',
+    blue: '#7c6af7', magenta: '#c56af5', cyan: '#56cfbc', white: '#e0e0f0',
+    brightBlack: '#44445a', brightRed: '#ff7b85', brightGreen: '#7dffd3',
+    brightYellow: '#ffd27d', brightBlue: '#a08fff', brightMagenta: '#e08fff',
+    brightCyan: '#7dffd3', brightWhite: '#ffffff',
+  },
+  dracula: {
+    background: '#282a36', foreground: '#f8f8f2',
+    cursor: '#f8f8f2', cursorAccent: '#282a36',
+    selectionBackground: 'rgba(68,71,90,0.6)',
+    black: '#21222c', red: '#ff5555', green: '#50fa7b', yellow: '#f1fa8c',
+    blue: '#bd93f9', magenta: '#ff79c6', cyan: '#8be9fd', white: '#f8f8f2',
+    brightBlack: '#6272a4', brightRed: '#ff6e6e', brightGreen: '#69ff94',
+    brightYellow: '#ffffa5', brightBlue: '#d6acff', brightMagenta: '#ff92df',
+    brightCyan: '#a4ffff', brightWhite: '#ffffff',
+  },
+  nord: {
+    background: '#2e3440', foreground: '#d8dee9',
+    cursor: '#88c0d0', cursorAccent: '#2e3440',
+    selectionBackground: 'rgba(136,192,208,0.3)',
+    black: '#3b4252', red: '#bf616a', green: '#a3be8c', yellow: '#ebcb8b',
+    blue: '#81a1c1', magenta: '#b48ead', cyan: '#88c0d0', white: '#e5e9f0',
+    brightBlack: '#4c566a', brightRed: '#bf616a', brightGreen: '#a3be8c',
+    brightYellow: '#ebcb8b', brightBlue: '#81a1c1', brightMagenta: '#b48ead',
+    brightCyan: '#8fbcbb', brightWhite: '#eceff4',
+  },
+  light: {
+    background: '#f5f5f5', foreground: '#1e1e1e',
+    cursor: '#5555cc', cursorAccent: '#f5f5f5',
+    selectionBackground: 'rgba(85,85,204,0.2)',
+    black: '#000000', red: '#cc0000', green: '#008800', yellow: '#888800',
+    blue: '#0000cc', magenta: '#880088', cyan: '#008888', white: '#888888',
+    brightBlack: '#555555', brightRed: '#ff5555', brightGreen: '#55aa55',
+    brightYellow: '#aaaa00', brightBlue: '#5555ff', brightMagenta: '#ff55ff',
+    brightCyan: '#55ffff', brightWhite: '#ffffff',
+  },
+};
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS = {
@@ -9,6 +54,7 @@ const DEFAULT_SETTINGS = {
   shell:      '',
   defaultDir: 'C:\\',
   scrollback: 5000,
+  theme:      'dark',
 };
 
 function loadSettings() {
@@ -23,13 +69,123 @@ function saveSettings(s) { localStorage.setItem('consolesplit-settings', JSON.st
 
 let settings = loadSettings();
 
+// ── History persistence ───────────────────────────────────────────────────────
+
+function loadHistoryFromStorage() {
+  try {
+    const raw = localStorage.getItem('consolesplit-history');
+    return raw ? JSON.parse(raw) : [];
+  } catch (_) { return []; }
+}
+
+function saveHistoryToStorage() {
+  try {
+    localStorage.setItem('consolesplit-history', JSON.stringify(commandHistory.slice(0, 500)));
+  } catch (_) {}
+}
+
+// ── Session persistence ───────────────────────────────────────────────────────
+
+function saveSessionToStorage() {
+  try {
+    const session = tabs.map(tab => ({
+      label:    tab.label,
+      layoutId: tab.layoutId || 'single',
+      panes:    tab.panes.map(id => ({ path: panes[id]?.path || settings.defaultDir })),
+    }));
+    localStorage.setItem('consolesplit-session', JSON.stringify(session));
+  } catch (_) {}
+}
+
+function loadSessionFromStorage() {
+  try {
+    const raw = localStorage.getItem('consolesplit-session');
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+}
+
+// ── Theme helpers ─────────────────────────────────────────────────────────────
+
+function applyThemeToAllPanes() {
+  const theme = THEMES[settings.theme] || THEMES.dark;
+  Object.values(panes).forEach(p => {
+    try { p.term.options.theme = theme; } catch (_) {}
+  });
+}
+
+// ── Zoom helpers ──────────────────────────────────────────────────────────────
+
+function applyZoomDelta(delta) {
+  const next = Math.min(24, Math.max(8, settings.fontSize + delta));
+  if (next === settings.fontSize) return;
+  settings.fontSize = next;
+  saveSettings(settings);
+  Object.values(panes).forEach(p => {
+    try {
+      p.term.options.fontSize = next;
+      requestAnimationFrame(() => {
+        p.fitAddon.fit();
+        api.ptyResize({ id: p.ptyId, cols: p.term.cols, rows: p.term.rows });
+      });
+    } catch (_) {}
+  });
+}
+
+function resetZoom() {
+  settings.fontSize = DEFAULT_SETTINGS.fontSize;
+  saveSettings(settings);
+  Object.values(panes).forEach(p => {
+    try {
+      p.term.options.fontSize = DEFAULT_SETTINGS.fontSize;
+      requestAnimationFrame(() => {
+        p.fitAddon.fit();
+        api.ptyResize({ id: p.ptyId, cols: p.term.cols, rows: p.term.rows });
+      });
+    } catch (_) {}
+  });
+}
+
+// ── Pane navigation ───────────────────────────────────────────────────────────
+
+function navigatePaneByDirection(direction) {
+  if (!activePaneId || !activeTabId) return;
+  const tab = getTab(activeTabId);
+  if (!tab || tab.panes.length < 2) return;
+
+  const cur = panes[activePaneId];
+  if (!cur) return;
+  const cr = cur.el.getBoundingClientRect();
+  const cx = cr.left + cr.width / 2;
+  const cy = cr.top  + cr.height / 2;
+
+  let best = null;
+  let bestScore = Infinity;
+
+  tab.panes.forEach(id => {
+    if (id === activePaneId) return;
+    const p = panes[id];
+    if (!p) return;
+    const r = p.el.getBoundingClientRect();
+    const dx = (r.left + r.width  / 2) - cx;
+    const dy = (r.top  + r.height / 2) - cy;
+    let score = Infinity;
+    if (direction === 'right' && dx >  5) score = dx  + Math.abs(dy) * 0.4;
+    if (direction === 'left'  && dx < -5) score = -dx + Math.abs(dy) * 0.4;
+    if (direction === 'down'  && dy >  5) score = dy  + Math.abs(dx) * 0.4;
+    if (direction === 'up'    && dy < -5) score = -dy + Math.abs(dx) * 0.4;
+    if (score < bestScore) { bestScore = score; best = id; }
+  });
+
+  if (best) setActivePane(best);
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 
-let tabs = [];
-let panes = {};
-let activeTabId  = null;
-let activePaneId = null;
-let profiles = [];
+let tabs          = [];
+let panes         = {};
+let activeTabId   = null;
+let activePaneId  = null;
+let profiles      = [];
 let commandHistory = [];
 let ptyIdCounter  = 0;
 let tabIdCounter  = 0;
@@ -48,6 +204,9 @@ let paneIdCounter = 0;
   profiles = await api.loadProfiles();
   renderProfiles();
 
+  commandHistory = loadHistoryFromStorage();
+  renderHistory();
+
   api.onPtyData(({ id, data }) => {
     const pane = getPaneByPtyId(id);
     if (pane) pane.term.write(data);
@@ -58,7 +217,15 @@ let paneIdCounter = 0;
     if (pane) pane.term.write(`\r\n\x1b[31m${t('term.exit')}\x1b[0m\r\n`);
   });
 
-  createTab();
+  await createTab();
+
+  const session = loadSessionFromStorage();
+  if (session && session.length > 0) {
+    await loadProfile({ tabs: session });
+  }
+
+  applyThemeToAllPanes();
+  window.addEventListener('beforeunload', saveSessionToStorage);
 })();
 
 // ── IDs ──────────────────────────────────────────────────────────────────────
@@ -150,25 +317,27 @@ function openSettingsModal() {
   const body = document.createElement('div');
   body.style.cssText = 'display:flex;flex-direction:column;gap:14px';
 
+  // Font size
   const fontField = document.createElement('div');
   fontField.className = 'modal-field';
   fontField.innerHTML = `<label>${t('settings.fontSize')}</label>`;
   const rr = document.createElement('div'); rr.className = 'range-row';
   const fontRange = document.createElement('input');
-  fontRange.type = 'range'; fontRange.min = 10; fontRange.max = 20; fontRange.value = s.fontSize;
+  fontRange.type = 'range'; fontRange.min = 8; fontRange.max = 24; fontRange.value = s.fontSize;
   const fontVal = document.createElement('span'); fontVal.className = 'range-value'; fontVal.textContent = s.fontSize + 'px';
   fontRange.oninput = () => { s.fontSize = +fontRange.value; fontVal.textContent = s.fontSize + 'px'; };
   rr.appendChild(fontRange); rr.appendChild(fontVal); fontField.appendChild(rr);
 
+  // Shell
   const shellField = document.createElement('div');
   shellField.className = 'modal-field';
   shellField.innerHTML = `<label>${t('settings.shell')}</label>`;
   const shellSelect = document.createElement('select');
   [
-    { value: '',              label: 'System default (cmd.exe)' },
-    { value: 'cmd.exe',       label: 'CMD (cmd.exe)' },
-    { value: 'powershell.exe',label: 'Windows PowerShell' },
-    { value: 'pwsh.exe',      label: 'PowerShell 7 (pwsh)' },
+    { value: '',               label: 'System default (cmd.exe)' },
+    { value: 'cmd.exe',        label: 'CMD (cmd.exe)' },
+    { value: 'powershell.exe', label: 'Windows PowerShell' },
+    { value: 'pwsh.exe',       label: 'PowerShell 7 (pwsh)' },
   ].forEach(({ value, label }) => {
     const opt = document.createElement('option');
     opt.value = value; opt.textContent = label; opt.selected = s.shell === value;
@@ -177,6 +346,7 @@ function openSettingsModal() {
   shellSelect.onchange = () => { s.shell = shellSelect.value; };
   shellField.appendChild(shellSelect);
 
+  // Default dir
   const dirField = document.createElement('div');
   dirField.className = 'modal-field';
   dirField.innerHTML = `<label>${t('settings.defaultDir')}</label>`;
@@ -187,6 +357,7 @@ function openSettingsModal() {
   dirBtn.onclick = async () => { const d = await api.openDir(); if (d) { dirInput.value = d; s.defaultDir = d; } };
   dirRow.appendChild(dirInput); dirRow.appendChild(dirBtn); dirField.appendChild(dirRow);
 
+  // Scrollback
   const scrollField = document.createElement('div');
   scrollField.className = 'modal-field';
   scrollField.innerHTML = `<label>${t('settings.scrollback')}</label>`;
@@ -197,17 +368,41 @@ function openSettingsModal() {
   scrollRange.oninput = () => { s.scrollback = +scrollRange.value; scrollVal.textContent = s.scrollback.toLocaleString(); };
   sr.appendChild(scrollRange); sr.appendChild(scrollVal); scrollField.appendChild(sr);
 
+  // Theme
+  const themeField = document.createElement('div');
+  themeField.className = 'modal-field';
+  themeField.innerHTML = `<label>${t('settings.theme')}</label>`;
+  const themeSelect = document.createElement('select');
+  [
+    { value: 'dark',    label: 'Dark (default)' },
+    { value: 'dracula', label: 'Dracula' },
+    { value: 'nord',    label: 'Nord' },
+    { value: 'light',   label: 'Light' },
+  ].forEach(({ value, label }) => {
+    const opt = document.createElement('option');
+    opt.value = value; opt.textContent = label; opt.selected = s.theme === value;
+    themeSelect.appendChild(opt);
+  });
+  themeSelect.onchange = () => { s.theme = themeSelect.value; };
+  themeField.appendChild(themeSelect);
+
   body.appendChild(fontField);
   body.appendChild(shellField);
   body.appendChild(dirField);
   body.appendChild(scrollField);
+  body.appendChild(themeField);
 
   openModal({
     title: t('settings.title'),
     body,
     footerButtons: [
       { label: t('settings.cancel'), onClick: closeModal },
-      { label: t('settings.save'), primary: true, onClick: () => { settings = s; saveSettings(settings); closeModal(); } },
+      { label: t('settings.save'), primary: true, onClick: () => {
+        settings = s;
+        saveSettings(settings);
+        applyThemeToAllPanes();
+        closeModal();
+      }},
     ],
   });
 }
@@ -379,6 +574,7 @@ async function redirectAllConsoles() {
     const pathSpan = pane.el.querySelector('.pane-path');
     if (pathSpan) { pathSpan.textContent = newDir; pathSpan.title = newDir; }
     api.ptyWrite({ id: pane.ptyId, data: `cd /d "${newDir}"\r` });
+    refreshGitBranch(paneId);
   });
 }
 
@@ -398,12 +594,27 @@ function setupWindowControls() {
 
 function setupGlobalShortcuts() {
   document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 't') { e.preventDefault(); createTab(); }
-    if (e.ctrlKey && e.key === 'w') { e.preventDefault(); closeActiveTab(); }
-    if (e.ctrlKey && e.shiftKey && e.key === 'H') { e.preventDefault(); simpleSplit('horizontal'); }
-    if (e.ctrlKey && e.shiftKey && e.key === 'V') { e.preventDefault(); simpleSplit('vertical'); }
-    if (e.ctrlKey && e.shiftKey && e.key === 'S') { e.preventDefault(); saveCurrentAsProfile(); }
-    if (e.ctrlKey && e.shiftKey && e.key === 'G') { e.preventDefault(); redirectAllConsoles(); }
+    if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+      if (e.key === 't') { e.preventDefault(); createTab(); return; }
+      if (e.key === 'w') { e.preventDefault(); closeActiveTab(); return; }
+      if (e.key === '=' || e.key === '+') { e.preventDefault(); applyZoomDelta(+1); return; }
+      if (e.key === '-') { e.preventDefault(); applyZoomDelta(-1); return; }
+      // Ctrl+1–9 y Ctrl+0 → ir al panel por índice (0 = décimo panel)
+      if (/^[0-9]$/.test(e.key)) {
+        const tab = getTab(activeTabId);
+        if (tab && tab.panes.length > 1) {
+          const idx = e.key === '0' ? 9 : parseInt(e.key, 10) - 1;
+          if (idx < tab.panes.length) { e.preventDefault(); setActivePane(tab.panes[idx]); return; }
+        }
+      }
+    }
+    if (e.ctrlKey && e.shiftKey && !e.altKey) {
+      if (e.key === 'H') { e.preventDefault(); simpleSplit('horizontal'); return; }
+      if (e.key === 'V') { e.preventDefault(); simpleSplit('vertical'); return; }
+      if (e.key === 'S') { e.preventDefault(); saveCurrentAsProfile(); return; }
+      if (e.key === 'G') { e.preventDefault(); redirectAllConsoles(); return; }
+      if (e.key === 'D') { e.preventDefault(); duplicateTab(); return; }
+    }
     if (e.key === 'Escape') { closeModal(); hideLayoutPicker(); }
   });
 }
@@ -446,6 +657,29 @@ async function createTab(label = null, cwdOverride = null) {
   const cwd = cwdOverride || settings.defaultDir || 'C:\\';
   await addPane(tabId, cwd);
   return tabId;
+}
+
+async function duplicateTab() {
+  const tab = getTab(activeTabId);
+  if (!tab) return;
+
+  const snapshot = {
+    label:    tab.label,
+    layoutId: tab.layoutId || 'single',
+    panes:    tab.panes.map(id => ({ path: panes[id]?.path || settings.defaultDir })),
+  };
+
+  const tabId = await createTab(snapshot.label);
+  await applyGridLayout(tabId, snapshot.layoutId);
+  getTab(tabId).panes.forEach((paneId, j) => {
+    const p = panes[paneId];
+    if (!p || !snapshot.panes[j]) return;
+    p.path = snapshot.panes[j].path;
+    api.ptyWrite({ id: p.ptyId, data: `cd /d "${snapshot.panes[j].path}"\r` });
+    const ps = p.el.querySelector('.pane-path');
+    if (ps) { ps.textContent = snapshot.panes[j].path; ps.title = snapshot.panes[j].path; }
+    refreshGitBranch(paneId);
+  });
 }
 
 function activateTab(tabId) {
@@ -534,6 +768,12 @@ function renderTabBar() {
     el.appendChild(label);
     el.appendChild(closeBtn);
     el.addEventListener('click', () => activateTab(tab.id));
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      activateTab(tab.id);
+      duplicateTab();
+    });
     container.appendChild(el);
   });
 }
@@ -550,6 +790,7 @@ async function addPane(tabId, cwd, parentEl = null) {
   paneEl.className = 'terminal-pane';
   paneEl.dataset.paneId = paneId;
 
+  // ── Topbar ──
   const topbar = document.createElement('div');
   topbar.className = 'pane-topbar';
 
@@ -557,6 +798,10 @@ async function addPane(tabId, cwd, parentEl = null) {
   pathSpan.className = 'pane-path';
   pathSpan.title = cwd;
   pathSpan.textContent = cwd;
+
+  const branchSpan = document.createElement('span');
+  branchSpan.className = 'pane-git-branch';
+  branchSpan.style.display = 'none';
 
   const btnDir = document.createElement('button');
   btnDir.className = 'btn-pane-dir';
@@ -569,6 +814,7 @@ async function addPane(tabId, cwd, parentEl = null) {
       pathSpan.title = newDir;
       panes[paneId].path = newDir;
       api.ptyWrite({ id: ptyId, data: `cd /d "${newDir}"\r` });
+      refreshGitBranch(paneId);
     }
   };
 
@@ -579,15 +825,48 @@ async function addPane(tabId, cwd, parentEl = null) {
   btnClose.onclick = () => closePaneInTab(tabId, paneId);
 
   topbar.appendChild(pathSpan);
+  topbar.appendChild(branchSpan);
   topbar.appendChild(btnDir);
   topbar.appendChild(btnClose);
 
+  // ── Search bar ──
+  const searchBar = document.createElement('div');
+  searchBar.className = 'pane-search hidden';
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.className = 'pane-search-input';
+  searchInput.placeholder = 'Buscar... (Enter / Shift+Enter)';
+
+  const searchPrev = document.createElement('button');
+  searchPrev.className = 'pane-search-btn';
+  searchPrev.title = 'Anterior';
+  searchPrev.innerHTML = '<svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"/></svg>';
+
+  const searchNext = document.createElement('button');
+  searchNext.className = 'pane-search-btn';
+  searchNext.title = 'Siguiente';
+  searchNext.innerHTML = '<svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>';
+
+  const searchClose = document.createElement('button');
+  searchClose.className = 'pane-search-btn';
+  searchClose.title = 'Cerrar';
+  searchClose.textContent = '✕';
+
+  searchBar.appendChild(searchInput);
+  searchBar.appendChild(searchPrev);
+  searchBar.appendChild(searchNext);
+  searchBar.appendChild(searchClose);
+
+  // ── xterm container ──
   const xtermContainer = document.createElement('div');
   xtermContainer.className = 'xterm-container';
 
   paneEl.appendChild(topbar);
+  paneEl.appendChild(searchBar);
   paneEl.appendChild(xtermContainer);
 
+  // ── Insert into DOM ──
   if (parentEl) {
     parentEl.appendChild(paneEl);
   } else {
@@ -606,17 +885,10 @@ async function addPane(tabId, cwd, parentEl = null) {
     el.style.display = el.dataset.tabArea === activeTabId ? 'flex' : 'none';
   });
 
+  // ── Terminal ──
+  const theme = THEMES[settings.theme] || THEMES.dark;
   const term = new Terminal({
-    theme: {
-      background: '#0d0d1a', foreground: '#e0e0f0',
-      cursor: '#7c6af7', cursorAccent: '#0d0d1a',
-      selectionBackground: 'rgba(124,106,247,0.3)',
-      black: '#1a1a2e', red: '#e05c6a', green: '#56cfbc', yellow: '#f5c542',
-      blue: '#7c6af7', magenta: '#c56af5', cyan: '#56cfbc', white: '#e0e0f0',
-      brightBlack: '#44445a', brightRed: '#ff7b85', brightGreen: '#7dffd3',
-      brightYellow: '#ffd27d', brightBlue: '#a08fff', brightMagenta: '#e08fff',
-      brightCyan: '#7dffd3', brightWhite: '#ffffff',
-    },
+    theme,
     fontFamily:  "'Cascadia Code','Cascadia Mono','Consolas',monospace",
     fontSize:    settings.fontSize,
     lineHeight:  1.35,
@@ -632,38 +904,134 @@ async function addPane(tabId, cwd, parentEl = null) {
   const linksAddon = new WebLinksAddon.WebLinksAddon();
   term.loadAddon(fitAddon);
   term.loadAddon(linksAddon);
+
+  let searchAddon = null;
+  if (typeof SearchAddon !== 'undefined') {
+    searchAddon = new SearchAddon.SearchAddon();
+    term.loadAddon(searchAddon);
+  }
+
   term.open(xtermContainer);
 
+  // Previene el cursor de "recorte" que Windows activa al mantener Alt
+  xtermContainer.addEventListener('mousedown', (e) => {
+    if (e.altKey) e.preventDefault();
+  }, true);
+
+  // ── Search bar wiring ──
+  const searchOpts = { caseSensitive: false };
+
+  const openSearch = () => {
+    searchBar.classList.remove('hidden');
+    requestAnimationFrame(() => searchInput.focus());
+  };
+  const closeSearch = () => {
+    searchBar.classList.add('hidden');
+    term.focus();
+  };
+
+  searchInput.addEventListener('input', () => {
+    if (searchAddon && searchInput.value) {
+      searchAddon.findNext(searchInput.value, searchOpts);
+    }
+  });
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeSearch(); return; }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!searchAddon) return;
+      if (e.shiftKey) searchAddon.findPrevious(searchInput.value, searchOpts);
+      else            searchAddon.findNext(searchInput.value, searchOpts);
+    }
+  });
+  searchPrev.onclick = () => searchAddon?.findPrevious(searchInput.value, searchOpts);
+  searchNext.onclick = () => searchAddon?.findNext(searchInput.value, searchOpts);
+  searchClose.onclick = closeSearch;
+
+  // ── Key handler ──
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== 'keydown') return true;
+
+    // Ctrl+1–9 y Ctrl+0 → navegar a panel por índice
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && /^[0-9]$/.test(e.key)) {
+      const currentTab = getTab(activeTabId);
+      if (currentTab && currentTab.panes.length > 1) {
+        const idx = e.key === '0' ? 9 : parseInt(e.key, 10) - 1;
+        if (idx < currentTab.panes.length) {
+          setActivePane(currentTab.panes[idx]);
+          return false;
+        }
+      }
+      return false; // capturar siempre para no enviar al terminal
+    }
+
+    // Ctrl+F — toggle search
+    if (e.ctrlKey && !e.shiftKey && e.key === 'f') {
+      if (searchBar.classList.contains('hidden')) openSearch();
+      else closeSearch();
+      return false;
+    }
+
+    // Ctrl+Backspace — delete previous word using tracked lineBuffer
+    // Sends N backspaces (\x7f) instead of \x17 so funciona en cmd.exe también
+    if (e.ctrlKey && e.key === 'Backspace') {
+      const wordMatch = lineBuffer.match(/\S+\s*$/);
+      if (wordMatch) {
+        const n = wordMatch[0].length;
+        api.ptyWrite({ id: ptyId, data: '\x7f'.repeat(n) });
+        lineBuffer = lineBuffer.slice(0, lineBuffer.length - n);
+      }
+      return false;
+    }
+
+    // Ctrl+Shift+C — copy selection
     if (e.ctrlKey && e.shiftKey && e.key === 'C') {
       const sel = term.getSelection();
       if (sel) navigator.clipboard.writeText(sel);
       return false;
     }
+
+    // Ctrl+Shift+V — paste
     if (e.ctrlKey && e.shiftKey && e.key === 'V') {
       navigator.clipboard.readText().then(text => {
         if (text) api.ptyWrite({ id: ptyId, data: text });
       });
       return false;
     }
+
     return true;
   });
 
+  // ── Right-click: copy if selection, paste otherwise ──
+  // Usar fase de captura (tercer arg = true) para interceptar ANTES de que el
+  // evento llegue al canvas interno de xterm, evitando que ambos handlers peguen.
   xtermContainer.addEventListener('contextmenu', async (e) => {
     e.preventDefault();
+    e.stopPropagation(); // evita que xterm procese el mismo evento
     const sel = term.getSelection();
     if (sel) { await navigator.clipboard.writeText(sel); term.clearSelection(); }
     else {
       const text = await navigator.clipboard.readText().catch(() => '');
       if (text) api.ptyWrite({ id: ptyId, data: text });
     }
-  });
+  }, true); // true = capture phase
 
+  // ── Command history capture ──
   let lineBuffer = '';
   term.onData((data) => {
     if (data === '\r') {
       const cmd = lineBuffer.trim();
+
+      // Traducir 'clear' a 'cls' en cmd.exe (clear no es un comando válido en cmd)
+      const isCmdExe = !settings.shell || settings.shell === 'cmd.exe';
+      if (cmd.toLowerCase() === 'clear' && isCmdExe) {
+        // Borrar 'clear' del buffer del shell y escribir 'cls' en su lugar
+        api.ptyWrite({ id: ptyId, data: '\x7f'.repeat(lineBuffer.length) + 'cls\r' });
+        addToHistory('cls', tab.label);
+        lineBuffer = '';
+        return;
+      }
+
       if (cmd) addToHistory(cmd, tab.label);
       lineBuffer = '';
     } else if (data === '\x7f') {
@@ -676,7 +1044,11 @@ async function addPane(tabId, cwd, parentEl = null) {
 
   paneEl.addEventListener('click', () => setActivePane(paneId));
 
-  panes[paneId] = { term, fitAddon, ptyId, path: cwd, tabId, el: paneEl };
+  // Track colEl for smart close-pane behavior
+  const colEl = (parentEl && parentEl.classList && parentEl.classList.contains('grid-col'))
+    ? parentEl : null;
+
+  panes[paneId] = { term, fitAddon, searchAddon, ptyId, path: cwd, tabId, el: paneEl, colEl, observer: null };
   tab.panes.push(paneId);
 
   const result = await api.ptyCreate({ id: ptyId, cwd, shell: settings.shell || undefined });
@@ -691,12 +1063,31 @@ async function addPane(tabId, cwd, parentEl = null) {
 
   setActivePane(paneId);
 
-  new ResizeObserver(() => {
+  const observer = new ResizeObserver(() => {
     try { fitAddon.fit(); api.ptyResize({ id: ptyId, cols: term.cols, rows: term.rows }); }
     catch (_) {}
-  }).observe(paneEl);
+  });
+  observer.observe(paneEl);
+  panes[paneId].observer = observer;
+
+  // Async git branch (don't block pane creation)
+  refreshGitBranch(paneId);
 
   return paneId;
+}
+
+async function refreshGitBranch(paneId) {
+  const pane = panes[paneId];
+  if (!pane) return;
+  const branch = await api.getGitBranch(pane.path).catch(() => null);
+  const el = pane.el.querySelector('.pane-git-branch');
+  if (!el) return;
+  if (branch) {
+    el.textContent = `⎇ ${branch}`;
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 function setActivePane(paneId) {
@@ -711,6 +1102,7 @@ function setActivePane(paneId) {
 function destroyPane(paneId) {
   const pane = panes[paneId];
   if (!pane) return;
+  try { pane.observer?.disconnect(); } catch (_) {}
   try { api.ptyKill({ id: pane.ptyId }); } catch (_) {}
   try { pane.term.dispose(); } catch (_) {}
   pane.el.remove();
@@ -720,23 +1112,67 @@ function destroyPane(paneId) {
 function closePaneInTab(tabId, paneId) {
   const tab = getTab(tabId);
   if (!tab || tab.panes.length <= 1) return;
+
+  const pane  = panes[paneId];
+  const colEl = pane?.colEl ?? null;
+
   destroyPane(paneId);
   tab.panes = tab.panes.filter(id => id !== paneId);
   destroyTabSplits(tab);
+
   const area = document.querySelector(`[data-tab-area="${tabId}"]`);
-  if (area) {
+  if (!area) {
+    if (activePaneId === paneId && tab.panes.length > 0) setActivePane(tab.panes[0]);
+    return;
+  }
+
+  const onRefit = () => requestAnimationFrame(() => refitTabPanes(tabId));
+
+  if (tab.panes.length === 1) {
+    // One pane left: show it full in area, strip col wrapper
+    const remaining = panes[tab.panes[0]];
+    area.innerHTML = '';
+    area.style.flexDirection = 'row';
+    if (remaining) {
+      remaining.colEl = null;
+      area.appendChild(remaining.el);
+    }
+
+  } else if (colEl && colEl.isConnected) {
+    // Pane was inside a grid-col — try to preserve column structure
+    const panesInSameCol = tab.panes.filter(id => panes[id]?.colEl === colEl);
+
+    if (panesInSameCol.length === 0) {
+      // Column is now empty: remove it, rebuild horizontal split with remaining cols
+      colEl.remove();
+      const allCols  = [...new Set(tab.panes.map(id => panes[id]?.colEl).filter(Boolean))];
+      const flatPanes = tab.panes.filter(id => !panes[id]?.colEl).map(id => panes[id].el);
+      const elements  = [...allCols, ...flatPanes];
+      if (elements.length > 1) tab.splitInstances.push(makeSplit(elements, 'horizontal', onRefit));
+    } else {
+      // Column still has panes — rebuild its vertical split
+      if (panesInSameCol.length > 1) {
+        const colPaneEls = panesInSameCol.map(id => panes[id].el);
+        tab.splitInstances.push(makeSplit(colPaneEls, 'vertical', onRefit));
+      }
+      // Rebuild horizontal split across all columns
+      const allCols  = [...new Set(tab.panes.map(id => panes[id]?.colEl).filter(Boolean))];
+      const flatPanes = tab.panes.filter(id => !panes[id]?.colEl).map(id => panes[id].el);
+      const elements  = [...allCols, ...flatPanes];
+      if (elements.length > 1) tab.splitInstances.push(makeSplit(elements, 'horizontal', onRefit));
+    }
+
+  } else {
+    // Flat layout — rebuild horizontal split
     const paneEls = tab.panes.map(id => panes[id]?.el).filter(Boolean);
     area.innerHTML = '';
     area.style.flexDirection = 'row';
     paneEls.forEach(el => area.appendChild(el));
-    if (tab.panes.length > 1) {
-      tab.splitInstances.push(makeSplit(
-        paneEls, 'horizontal',
-        () => requestAnimationFrame(() => refitTabPanes(tabId))
-      ));
-    }
+    if (paneEls.length > 1) tab.splitInstances.push(makeSplit(paneEls, 'horizontal', onRefit));
   }
+
   if (activePaneId === paneId && tab.panes.length > 0) setActivePane(tab.panes[0]);
+  setTimeout(() => refitTabPanes(tabId), 50);
 }
 
 // ── Simple split (H/V toolbar buttons) ───────────────────────────────────────
@@ -751,11 +1187,12 @@ async function simpleSplit(direction) {
 
   const area = document.querySelector(`[data-tab-area="${activeTabId}"]`);
   if (area) {
-    // Wipe area to remove any stale grid-col wrappers, then re-attach existing panes
     const paneEls = tab.panes.map(id => panes[id]?.el).filter(Boolean);
     area.innerHTML = '';
     area.style.flexDirection = direction === 'vertical' ? 'column' : 'row';
     paneEls.forEach(el => area.appendChild(el));
+    // Clear colEl since we're flattening
+    tab.panes.forEach(id => { if (panes[id]) panes[id].colEl = null; });
   }
 
   await addPane(activeTabId, cwd);
@@ -773,6 +1210,7 @@ async function simpleSplit(direction) {
 function addToHistory(cmd, tabLabel) {
   const time = new Date().toTimeString().slice(0, 5);
   commandHistory.unshift({ time, tabLabel, cmd });
+  saveHistoryToStorage();
   renderHistory();
 }
 
@@ -781,9 +1219,9 @@ function renderHistory() {
   const filter = document.getElementById('history-search').value.toLowerCase();
   list.innerHTML = '';
   commandHistory.forEach((item) => {
+    if (filter && !item.cmd.toLowerCase().includes(filter)) return;
     const li = document.createElement('li');
     li.className = 'history-item';
-    if (filter && !item.cmd.toLowerCase().includes(filter)) li.style.display = 'none';
     li.title = t('history.rerun');
 
     const time  = document.createElement('span'); time.className  = 'hi-time'; time.textContent  = item.time;
@@ -802,7 +1240,11 @@ function renderHistory() {
 
 function setupHistoryUI() {
   document.getElementById('history-search').addEventListener('input', renderHistory);
-  document.getElementById('btn-clear-history').onclick = () => { commandHistory = []; renderHistory(); };
+  document.getElementById('btn-clear-history').onclick = () => {
+    commandHistory = [];
+    saveHistoryToStorage();
+    renderHistory();
+  };
   document.getElementById('btn-close-history').onclick = toggleHistory;
 }
 
@@ -858,7 +1300,7 @@ async function loadProfile(profile) {
   }
 
   for (let i = 0; i < profile.tabs.length; i++) {
-    const snap = profile.tabs[i];
+    const snap  = profile.tabs[i];
     const paths = snap.panes.map(p => p.path);
 
     if (i === 0 && tabs.length === 1) {
@@ -871,6 +1313,7 @@ async function loadProfile(profile) {
           api.ptyWrite({ id: panes[paneId].ptyId, data: `cd /d "${paths[j]}"\r` });
           const ps = panes[paneId].el.querySelector('.pane-path');
           if (ps) { ps.textContent = paths[j]; ps.title = paths[j]; }
+          refreshGitBranch(paneId);
         }
       });
     } else {
@@ -882,6 +1325,7 @@ async function loadProfile(profile) {
           api.ptyWrite({ id: panes[paneId].ptyId, data: `cd /d "${paths[j]}"\r` });
           const ps = panes[paneId].el.querySelector('.pane-path');
           if (ps) { ps.textContent = paths[j]; ps.title = paths[j]; }
+          refreshGitBranch(paneId);
         }
       });
     }

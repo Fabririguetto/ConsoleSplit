@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const { execFile } = require('child_process');
 
 let mainWindow;
 const ptyProcesses = new Map();
@@ -123,6 +124,16 @@ ipcMain.on('window:maximize', () => {
   else mainWindow.maximize();
 });
 ipcMain.on('window:close', () => mainWindow.close());
+
+// ── Git branch ───────────────────────────────────────────────────────────────
+
+ipcMain.handle('git:branch', (event, cwd) => {
+  return new Promise((resolve) => {
+    execFile('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd, timeout: 3000 }, (err, stdout) => {
+      resolve(err ? null : (stdout.trim() || null));
+    });
+  });
+});
 
 // ── Directory picker ─────────────────────────────────────────────────────────
 

@@ -366,6 +366,15 @@ html, body {
   text-overflow: ellipsis;
 }
 
+.pane-git-branch {
+  font-size: 10px;
+  color: var(--accent2);
+  white-space: nowrap;
+  padding: 0 5px;
+  border-left: 1px solid var(--border);
+  opacity: .85;
+}
+
 .btn-pane-dir {
   background: transparent;
   border: none;
@@ -399,9 +408,63 @@ html, body {
   right: 0;
   bottom: 0;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .terminal-pane.focused .pane-topbar { border-bottom-color: var(--accent); }
+
+/* ── Pane search bar ─────────────────────────────────────────────────────── */
+.pane-search {
+  position: absolute;
+  top: 27px;
+  right: 8px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5);
+}
+.pane-search.hidden { display: none; }
+
+.pane-search-input {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 3px 8px;
+  font-size: 12px;
+  outline: none;
+  width: 170px;
+  transition: border-color .15s;
+}
+.pane-search-input:focus { border-color: var(--accent); }
+
+.pane-search-count {
+  font-size: 10px;
+  color: var(--text-dim);
+  min-width: 28px;
+  text-align: center;
+}
+
+.pane-search-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .1s, color .1s;
+}
+.pane-search-btn:hover { background: var(--bg-hover); color: var(--text); }
 
 /* ── History panel ───────────────────────────────────────────────────────── */
 #history-panel {
