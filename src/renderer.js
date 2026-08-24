@@ -51,7 +51,7 @@ const THEMES = {
 
 const DEFAULT_SETTINGS = {
   fontSize:   13,
-  shell:      '',
+  shell:      'powershell.exe',
   defaultDir: 'C:\\',
   scrollback: 5000,
   theme:      'dark',
