@@ -42,11 +42,11 @@ app.on('window-all-closed', () => {
 
 // ── Terminal lifecycle ──────────────────────────────────────────────────────
 
-ipcMain.handle('pty:create', (event, { id, cwd }) => {
+ipcMain.handle('pty:create', (event, { id, cwd, shell: shellOverride }) => {
   let pty;
   try {
     const nodePty = require('node-pty');
-    const shell = process.env.COMSPEC || 'cmd.exe';
+    const shell = shellOverride || process.env.COMSPEC || 'cmd.exe';
     const resolvedCwd = fs.existsSync(cwd) ? cwd : os.homedir();
 
     pty = nodePty.spawn(shell, [], {

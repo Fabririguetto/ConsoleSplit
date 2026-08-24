@@ -497,3 +497,162 @@ html, body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(3px);
+}
+#modal-overlay.hidden { display: none; }
+
+#modal-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 380px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-mid);
+}
+
+#modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+#modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background .12s, color .12s;
+}
+#modal-close-btn:hover { background: var(--bg-hover); color: var(--danger); }
+
+#modal-body {
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+#modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-mid);
+}
+
+/* Modal form elements */
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.modal-field label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--text-dim);
+}
+
+.modal-field input[type="text"],
+.modal-field input[type="number"],
+.modal-field select {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s;
+  width: 100%;
+}
+.modal-field input:focus,
+.modal-field select:focus { border-color: var(--accent); }
+
+.modal-field select option { background: var(--bg-panel); }
+
+.modal-field .dir-row {
+  display: flex;
+  gap: 6px;
+}
+.modal-field .dir-row input { flex: 1; }
+.modal-field .dir-row button {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background .12s, color .12s;
+}
+.modal-field .dir-row button:hover { background: var(--bg-active); color: var(--text); }
+
+.modal-field input[type="range"] {
+  accent-color: var(--accent);
+  width: 100%;
+}
+.modal-field .range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.modal-field .range-row input { flex: 1; }
+.modal-field .range-value {
+  font-size: 13px;
+  color: var(--accent2);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* Modal buttons */
+.btn-modal {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 18px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.btn-modal:hover { background: var(--bg-active); border-color: var(--text-dim); }
+.btn-modal.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.btn-modal.primary:hover { background: #6b5ae6; border-color: #6b5ae6; }
+
+/* Redirect button special color */
+#btn-redirect-all { color: var(--accent2) !important; font-size: 12px !important; }

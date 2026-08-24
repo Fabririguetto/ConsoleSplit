@@ -2,6 +2,30 @@
 
 const api = window.electronAPI;
 
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+const DEFAULT_SETTINGS = {
+  fontSize:   13,
+  shell:      '',          // '' = use system default (COMSPEC)
+  defaultDir: 'C:\\',
+  scrollback: 5000,
+};
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem('consolesplit-settings');
+    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
+  } catch (_) {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+
+function saveSettings(s) {
+  localStorage.setItem('consolesplit-settings', JSON.stringify(s));
+}
+
+let settings = loadSettings();
+
 // ── State ────────────────────────────────────────────────────────────────────
 
 let tabs = [];
@@ -59,12 +83,209 @@ function getTab(tabId) {
   return tabs.find(t => t.id === tabId);
 }
 
+// ── Modal system ──────────────────────────────────────────────────────────────
+
+let _modalResolve = null;
+
+function openModal({ title, body, footerButtons }) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = '';
+  document.getElementById('modal-body').appendChild(body);
+
+  const footer = document.getElementById('modal-footer');
+  footer.innerHTML = '';
+  footerButtons.forEach(({ label, primary, onClick }) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-modal' + (primary ? ' primary' : '');
+    btn.textContent = label;
+    btn.onclick = onClick;
+    footer.appendChild(btn);
+  });
+
+  document.getElementById('modal-overlay').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+  if (_modalResolve) { _modalResolve(null); _modalResolve = null; }
+}
+
+// Returns a Promise<string|null> — replaces window.prompt()
+function promptModal(titleKey, placeholderKey) {
+  return new Promise((resolve) => {
+    _modalResolve = resolve;
+
+    const body = document.createElement('div');
+    body.className = 'modal-field';
+
+    const label = document.createElement('label');
+    label.textContent = t(titleKey);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = t(placeholderKey);
+    input.style.marginTop = '4px';
+
+    body.appendChild(label);
+    body.appendChild(input);
+
+    const commit = () => {
+      const val = input.value.trim();
+      _modalResolve = null;
+      closeModal();
+      resolve(val || null);
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') commit();
+      if (e.key === 'Escape') { _modalResolve = null; closeModal(); resolve(null); }
+    });
+
+    openModal({
+      title: t(titleKey),
+      body,
+      footerButtons: [
+        { label: t('modal.cancel'), onClick: () => { _modalResolve = null; closeModal(); resolve(null); } },
+        { label: t('modal.save'), primary: true, onClick: commit },
+      ],
+    });
+
+    requestAnimationFrame(() => input.focus());
+  });
+}
+
+// ── Settings modal ────────────────────────────────────────────────────────────
+
+function openSettingsModal() {
+  const s = { ...settings };
+
+  const body = document.createElement('div');
+  body.style.display = 'flex';
+  body.style.flexDirection = 'column';
+  body.style.gap = '14px';
+
+  // Font size
+  const fontField = document.createElement('div');
+  fontField.className = 'modal-field';
+  fontField.innerHTML = `<label>${t('settings.fontSize')}</label>`;
+  const rangeRow = document.createElement('div');
+  rangeRow.className = 'range-row';
+  const fontRange = document.createElement('input');
+  fontRange.type = 'range';
+  fontRange.min = 10; fontRange.max = 20; fontRange.step = 1;
+  fontRange.value = s.fontSize;
+  const fontVal = document.createElement('span');
+  fontVal.className = 'range-value';
+  fontVal.textContent = s.fontSize + 'px';
+  fontRange.oninput = () => { s.fontSize = +fontRange.value; fontVal.textContent = s.fontSize + 'px'; };
+  rangeRow.appendChild(fontRange);
+  rangeRow.appendChild(fontVal);
+  fontField.appendChild(rangeRow);
+
+  // Shell
+  const shellField = document.createElement('div');
+  shellField.className = 'modal-field';
+  shellField.innerHTML = `<label>${t('settings.shell')}</label>`;
+  const shellSelect = document.createElement('select');
+  [
+    { value: '',                   label: 'System default (cmd.exe)' },
+    { value: 'cmd.exe',            label: 'CMD (cmd.exe)' },
+    { value: 'powershell.exe',     label: 'Windows PowerShell' },
+    { value: 'pwsh.exe',           label: 'PowerShell 7 (pwsh)' },
+  ].forEach(({ value, label }) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    opt.selected = s.shell === value;
+    shellSelect.appendChild(opt);
+  });
+  shellSelect.onchange = () => { s.shell = shellSelect.value; };
+  shellField.appendChild(shellSelect);
+
+  // Default dir
+  const dirField = document.createElement('div');
+  dirField.className = 'modal-field';
+  dirField.innerHTML = `<label>${t('settings.defaultDir')}</label>`;
+  const dirRow = document.createElement('div');
+  dirRow.className = 'dir-row';
+  const dirInput = document.createElement('input');
+  dirInput.type = 'text';
+  dirInput.value = s.defaultDir;
+  dirInput.oninput = () => { s.defaultDir = dirInput.value; };
+  const dirBtn = document.createElement('button');
+  dirBtn.textContent = '📁';
+  dirBtn.onclick = async () => {
+    const d = await api.openDir();
+    if (d) { dirInput.value = d; s.defaultDir = d; }
+  };
+  dirRow.appendChild(dirInput);
+  dirRow.appendChild(dirBtn);
+  dirField.appendChild(dirRow);
+
+  // Scrollback
+  const scrollField = document.createElement('div');
+  scrollField.className = 'modal-field';
+  scrollField.innerHTML = `<label>${t('settings.scrollback')}</label>`;
+  const scrollRow = document.createElement('div');
+  scrollRow.className = 'range-row';
+  const scrollRange = document.createElement('input');
+  scrollRange.type = 'range';
+  scrollRange.min = 1000; scrollRange.max = 50000; scrollRange.step = 1000;
+  scrollRange.value = s.scrollback;
+  const scrollVal = document.createElement('span');
+  scrollVal.className = 'range-value';
+  scrollVal.textContent = s.scrollback.toLocaleString();
+  scrollRange.oninput = () => { s.scrollback = +scrollRange.value; scrollVal.textContent = s.scrollback.toLocaleString(); };
+  scrollRow.appendChild(scrollRange);
+  scrollRow.appendChild(scrollVal);
+  scrollField.appendChild(scrollRow);
+
+  body.appendChild(fontField);
+  body.appendChild(shellField);
+  body.appendChild(dirField);
+  body.appendChild(scrollField);
+
+  openModal({
+    title: t('settings.title'),
+    body,
+    footerButtons: [
+      { label: t('settings.cancel'), onClick: closeModal },
+      {
+        label: t('settings.save'), primary: true, onClick: () => {
+          settings = s;
+          saveSettings(settings);
+          closeModal();
+        },
+      },
+    ],
+  });
+}
+
+// ── Redirect all consoles ─────────────────────────────────────────────────────
+
+async function redirectAllConsoles() {
+  const newDir = await api.openDir();
+  if (!newDir) return;
+
+  Object.values(panes).forEach(pane => {
+    pane.path = newDir;
+    // Update topbar path label
+    const pathSpan = pane.el.querySelector('.pane-path');
+    if (pathSpan) { pathSpan.textContent = newDir; pathSpan.title = newDir; }
+    api.ptyWrite({ id: pane.ptyId, data: `cd /d "${newDir}"\r` });
+  });
+}
+
 // ── Window controls ───────────────────────────────────────────────────────────
 
 function setupWindowControls() {
   document.getElementById('btn-minimize').onclick = () => api.windowMinimize();
   document.getElementById('btn-maximize').onclick = () => api.windowMaximize();
   document.getElementById('btn-close').onclick    = () => api.windowClose();
+  document.getElementById('modal-close-btn').onclick = closeModal;
+  document.getElementById('modal-overlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
 }
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
@@ -76,6 +297,8 @@ function setupGlobalShortcuts() {
     if (e.ctrlKey && e.shiftKey && e.key === 'H') { e.preventDefault(); splitActivePane('horizontal'); }
     if (e.ctrlKey && e.shiftKey && e.key === 'V') { e.preventDefault(); splitActivePane('vertical'); }
     if (e.ctrlKey && e.shiftKey && e.key === 'S') { e.preventDefault(); saveCurrentAsProfile(); }
+    if (e.ctrlKey && e.shiftKey && e.key === 'G') { e.preventDefault(); redirectAllConsoles(); }
+    if (e.key === 'Escape') closeModal();
   });
 }
 
@@ -86,9 +309,11 @@ function setupTabBarButtons() {
   document.getElementById('btn-split').onclick          = () => splitActivePane();
   document.getElementById('btn-split-h').onclick        = () => splitActivePane('horizontal');
   document.getElementById('btn-split-v').onclick        = () => splitActivePane('vertical');
+  document.getElementById('btn-redirect-all').onclick   = redirectAllConsoles;
   document.getElementById('btn-save-profile').onclick   = saveCurrentAsProfile;
   document.getElementById('btn-toggle-sidebar').onclick = toggleSidebar;
   document.getElementById('btn-toggle-history').onclick = toggleHistory;
+  document.getElementById('btn-settings').onclick       = openSettingsModal;
   document.getElementById('btn-lang').onclick           = () => {
     cycleLang();
     renderTabBar();
@@ -113,7 +338,7 @@ async function createTab(label = null, cwdOverride = null) {
 
   renderTabBar();
 
-  const cwd = cwdOverride || 'C:\\';
+  const cwd = cwdOverride || settings.defaultDir || 'C:\\';
   await addPane(tabId, cwd);
 
   return tabId;
@@ -299,9 +524,9 @@ async function addPane(tabId, cwd) {
       brightCyan:    '#7dffd3', brightWhite:   '#ffffff',
     },
     fontFamily: "'Cascadia Code', 'Cascadia Mono', 'Consolas', monospace",
-    fontSize: 13,
+    fontSize:   settings.fontSize,
     lineHeight: 1.35,
-    scrollback: 5000,
+    scrollback: settings.scrollback,
     allowProposedApi: true,
     cursorBlink: true,
     cursorStyle: 'bar',
@@ -316,7 +541,6 @@ async function addPane(tabId, cwd) {
   term.loadAddon(linksAddon);
   term.open(xtermContainer);
 
-  // Ctrl+Shift+C → copy, Ctrl+Shift+V → paste
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== 'keydown') return true;
     if (e.ctrlKey && e.shiftKey && e.key === 'C') {
@@ -333,7 +557,6 @@ async function addPane(tabId, cwd) {
     return true;
   });
 
-  // Right-click: copy if selection, paste if not
   xtermContainer.addEventListener('contextmenu', async (e) => {
     e.preventDefault();
     const sel = term.getSelection();
@@ -346,7 +569,6 @@ async function addPane(tabId, cwd) {
     }
   });
 
-  // Intercept typed commands for history
   let lineBuffer = '';
   term.onData((data) => {
     if (data === '\r') {
@@ -366,7 +588,11 @@ async function addPane(tabId, cwd) {
   panes[paneId] = { term, fitAddon, ptyId, path: cwd, tabId, el: paneEl };
   tab.panes.push(paneId);
 
-  const result = await api.ptyCreate({ id: ptyId, cwd });
+  const result = await api.ptyCreate({
+    id: ptyId,
+    cwd,
+    shell: settings.shell || undefined,
+  });
   if (!result.success) {
     term.write(`\x1b[31m${t('term.error')} ${result.error}\x1b[0m\r\n`);
   }
@@ -374,8 +600,7 @@ async function addPane(tabId, cwd) {
   requestAnimationFrame(() => {
     try {
       fitAddon.fit();
-      const { cols, rows } = term;
-      api.ptyResize({ id: ptyId, cols, rows });
+      api.ptyResize({ id: ptyId, cols: term.cols, rows: term.rows });
     } catch (_) {}
   });
 
@@ -384,8 +609,7 @@ async function addPane(tabId, cwd) {
   const ro = new ResizeObserver(() => {
     try {
       fitAddon.fit();
-      const { cols, rows } = term;
-      api.ptyResize({ id: ptyId, cols, rows });
+      api.ptyResize({ id: ptyId, cols: term.cols, rows: term.rows });
     } catch (_) {}
   });
   ro.observe(paneEl);
@@ -440,7 +664,7 @@ async function splitActivePane(direction = null) {
   if (!tab) return;
 
   const resolvedDir = direction || autoDetectSplitDirection();
-  const activePanePath = panes[activePaneId]?.path || 'C:\\';
+  const activePanePath = panes[activePaneId]?.path || settings.defaultDir;
   await addPane(activeTabId, activePanePath);
 
   tab.splitMode = resolvedDir;
@@ -586,13 +810,13 @@ function toggleSidebar() {
 }
 
 async function saveCurrentAsProfile() {
-  const name = prompt(t('sidebar.profileName'));
+  const name = await promptModal('modal.profileName', 'modal.profilePlaceholder');
   if (!name) return;
 
   const snapshot = tabs.map(tab => ({
     label: tab.label,
     panes: tab.panes.map(paneId => ({
-      path: panes[paneId]?.path || 'C:\\',
+      path: panes[paneId]?.path || settings.defaultDir,
     })),
   }));
 

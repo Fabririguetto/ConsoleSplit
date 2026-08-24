@@ -9,7 +9,19 @@
 </head>
 <body>
 
-  <!-- Custom title bar -->
+  <!-- ── Modal overlay ─────────────────────────────────────────────────── -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal-box">
+      <div id="modal-header">
+        <span id="modal-title"></span>
+        <button id="modal-close-btn">✕</button>
+      </div>
+      <div id="modal-body"></div>
+      <div id="modal-footer"></div>
+    </div>
+  </div>
+
+  <!-- ── Custom title bar ──────────────────────────────────────────────── -->
   <div id="titlebar">
     <div id="titlebar-drag">
       <span id="app-icon">⬡</span>
@@ -22,7 +34,7 @@
     </div>
   </div>
 
-  <!-- Main layout -->
+  <!-- ── Main layout ───────────────────────────────────────────────────── -->
   <div id="app">
 
     <!-- Sidebar: profiles -->
@@ -40,14 +52,16 @@
       <!-- Tab bar -->
       <div id="tab-bar">
         <div id="tabs-container"></div>
-        <button id="btn-new-tab"        data-i18n-title="tab.new">＋</button>
+        <button id="btn-new-tab" data-i18n-title="tab.new">＋</button>
         <div id="tab-actions">
           <button id="btn-split"          data-i18n-title="btn.split">⊞</button>
           <button id="btn-split-h"        data-i18n-title="btn.splitH">▌</button>
           <button id="btn-split-v"        data-i18n-title="btn.splitV">▀</button>
+          <button id="btn-redirect-all"   data-i18n-title="btn.redirectAll">📂→</button>
           <button id="btn-save-profile"   data-i18n-title="btn.saveProfile">💾</button>
           <button id="btn-toggle-sidebar" data-i18n-title="btn.sidebar">☰</button>
           <button id="btn-toggle-history" data-i18n-title="btn.history">⏱</button>
+          <button id="btn-settings"       data-i18n-title="btn.settings">⚙</button>
           <button id="btn-lang" title="Language / Idioma">ES</button>
         </div>
       </div>
