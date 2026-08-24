@@ -312,6 +312,7 @@ html, body {
 .terminal-pane {
   position: relative;
   overflow: hidden;
+  flex: 1;
   min-width: 60px;
   min-height: 40px;
   background: var(--bg-deep);
