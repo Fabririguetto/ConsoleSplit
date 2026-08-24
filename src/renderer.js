@@ -245,10 +245,7 @@ async function addPane(tabId, cwd) {
       pathSpan.textContent = newDir;
       pathSpan.title = newDir;
       panes[paneId].path = newDir;
-      // Restart PTY in new dir
-      api.ptyKill({ id: ptyId });
-      await api.ptyCreate({ id: ptyId, cwd: newDir });
-      panes[paneId].term.clear();
+      api.ptyWrite({ id: ptyId, data: `cd /d "${newDir}"\r` });
     }
   };
 
