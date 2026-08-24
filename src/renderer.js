@@ -898,6 +898,7 @@ async function addPane(tabId, cwd, parentEl = null) {
     cursorStyle: 'bar',
     windowsMode: true,
     rightClickSelectsWord: false,
+    copyOnSelect: true,
   });
 
   const fitAddon   = new FitAddon.FitAddon();
@@ -969,13 +970,6 @@ async function addPane(tabId, cwd, parentEl = null) {
     if (e.ctrlKey && !e.shiftKey && e.key === 'f') {
       if (searchBar.classList.contains('hidden')) openSearch();
       else closeSearch();
-      return false;
-    }
-
-    // Ctrl+Shift+C — copy selection
-    if (e.ctrlKey && e.shiftKey && e.key === 'C') {
-      const sel = term.getSelection();
-      if (sel) navigator.clipboard.writeText(sel);
       return false;
     }
 
