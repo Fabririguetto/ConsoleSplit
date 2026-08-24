@@ -4,12 +4,12 @@ const api = window.electronAPI;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
-let tabs = [];           // [{ id, label, panes: [paneId, ...], splitMode }]
-let panes = {};          // { paneId: { term, fitAddon, ptyId, path, tabId, el } }
+let tabs = [];
+let panes = {};
 let activeTabId = null;
 let activePaneId = null;
 let profiles = [];
-let commandHistory = []; // [{ time, tabLabel, cmd }]
+let commandHistory = [];
 let ptyIdCounter = 0;
 let tabIdCounter = 0;
 let paneIdCounter = 0;
@@ -17,6 +17,8 @@ let paneIdCounter = 0;
 // ── Init ─────────────────────────────────────────────────────────────────────
 
 (async function init() {
+  applyTranslations();
+
   setupWindowControls();
   setupGlobalShortcuts();
   setupTabBarButtons();
@@ -26,7 +28,6 @@ let paneIdCounter = 0;
   profiles = await api.loadProfiles();
   renderProfiles();
 
-  // PTY data/exit come from main process
   api.onPtyData(({ id, data }) => {
     const pane = getPaneByPtyId(id);
     if (pane) pane.term.write(data);
@@ -35,11 +36,10 @@ let paneIdCounter = 0;
   api.onPtyExit(({ id }) => {
     const pane = getPaneByPtyId(id);
     if (pane) {
-      pane.term.write('\r\n\x1b[31m[Proceso terminado]\x1b[0m\r\n');
+      pane.term.write(`\r\n\x1b[31m${t('term.exit')}\x1b[0m\r\n`);
     }
   });
 
-  // Start with one tab
   createTab();
 })();
 
@@ -81,11 +81,18 @@ function setupGlobalShortcuts() {
 // ── Tab bar buttons ───────────────────────────────────────────────────────────
 
 function setupTabBarButtons() {
-  document.getElementById('btn-new-tab').onclick    = () => createTab();
-  document.getElementById('btn-split-h').onclick    = () => splitActivePane('horizontal');
-  document.getElementById('btn-split-v').onclick    = () => splitActivePane('vertical');
-  document.getElementById('btn-toggle-sidebar').onclick  = toggleSidebar;
-  document.getElementById('btn-toggle-history').onclick  = toggleHistory;
+  document.getElementById('btn-new-tab').onclick        = () => createTab();
+  document.getElementById('btn-split-h').onclick        = () => splitActivePane('horizontal');
+  document.getElementById('btn-split-v').onclick        = () => splitActivePane('vertical');
+  document.getElementById('btn-toggle-sidebar').onclick = toggleSidebar;
+  document.getElementById('btn-toggle-history').onclick = toggleHistory;
+  document.getElementById('btn-lang').onclick           = () => {
+    cycleLang();
+    // Re-render dynamic UI with new language
+    renderTabBar();
+    renderProfiles();
+    renderHistory();
+  };
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -94,7 +101,7 @@ async function createTab(label = null, cwdOverride = null) {
   const tabId = newTabId();
   const tab = {
     id: tabId,
-    label: label || `Terminal ${tabs.length + 1}`,
+    label: label || `${t('tab.defaultName')} ${tabs.length + 1}`,
     panes: [],
     splitMode: null,
     splitInstance: null,
@@ -113,14 +120,12 @@ async function createTab(label = null, cwdOverride = null) {
 function activateTab(tabId) {
   activeTabId = tabId;
 
-  // Show/hide terminal area content
   document.querySelectorAll('[data-tab-area]').forEach(el => {
     el.style.display = el.dataset.tabArea === tabId ? 'flex' : 'none';
   });
 
   renderTabBar();
 
-  // Set focus to the first pane of this tab
   const tab = getTab(tabId);
   if (tab && tab.panes.length > 0) {
     setActivePane(tab.panes[0]);
@@ -128,15 +133,13 @@ function activateTab(tabId) {
 }
 
 function closeActiveTab() {
-  if (tabs.length <= 1) return; // keep at least one
+  if (tabs.length <= 1) return;
   const tabId = activeTabId;
   const tab = getTab(tabId);
   if (!tab) return;
 
-  // Kill all panes in tab
   tab.panes.forEach(paneId => destroyPane(paneId));
 
-  // Remove tab area element
   const area = document.querySelector(`[data-tab-area="${tabId}"]`);
   if (area) area.remove();
 
@@ -157,14 +160,13 @@ function renderTabBar() {
     el.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
     el.dataset.tabId = tab.id;
 
-    const dot  = document.createElement('span');
+    const dot = document.createElement('span');
     dot.className = 'tab-dot';
 
     const label = document.createElement('span');
     label.className = 'tab-label';
     label.textContent = tab.label;
 
-    // Double-click to rename
     label.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       const input = document.createElement('input');
@@ -189,7 +191,7 @@ function renderTabBar() {
     const closeBtn = document.createElement('button');
     closeBtn.className = 'btn-close-tab';
     closeBtn.textContent = '✕';
-    closeBtn.title = 'Cerrar pestaña';
+    closeBtn.title = t('tab.close');
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (tabs.length <= 1) return;
@@ -198,8 +200,8 @@ function renderTabBar() {
         const other = tabs.find(t => t.id !== closing);
         if (other) activateTab(other.id);
       }
-      const t = getTab(closing);
-      if (t) t.panes.forEach(paneId => destroyPane(paneId));
+      const tObj = getTab(closing);
+      if (tObj) tObj.panes.forEach(paneId => destroyPane(paneId));
       const area = document.querySelector(`[data-tab-area="${closing}"]`);
       if (area) area.remove();
       tabs = tabs.filter(t => t.id !== closing);
@@ -222,7 +224,6 @@ async function addPane(tabId, cwd) {
   const tab    = getTab(tabId);
   if (!tab) return;
 
-  // Create DOM structure
   const paneEl = document.createElement('div');
   paneEl.className = 'terminal-pane';
   paneEl.dataset.paneId = paneId;
@@ -238,7 +239,7 @@ async function addPane(tabId, cwd) {
   const btnDir = document.createElement('button');
   btnDir.className = 'btn-pane-dir';
   btnDir.textContent = '📁';
-  btnDir.title = 'Cambiar directorio';
+  btnDir.title = t('pane.changeDir');
   btnDir.onclick = async () => {
     const newDir = await api.openDir();
     if (newDir) {
@@ -252,7 +253,7 @@ async function addPane(tabId, cwd) {
   const btnClose = document.createElement('button');
   btnClose.className = 'btn-close-pane';
   btnClose.textContent = '✕';
-  btnClose.title = 'Cerrar panel';
+  btnClose.title = t('pane.close');
   btnClose.onclick = () => closePaneInTab(tabId, paneId);
 
   topbar.appendChild(pathSpan);
@@ -265,7 +266,6 @@ async function addPane(tabId, cwd) {
   paneEl.appendChild(topbar);
   paneEl.appendChild(xtermContainer);
 
-  // Attach to tab area
   let area = document.querySelector(`[data-tab-area="${tabId}"]`);
   if (!area) {
     area = document.createElement('div');
@@ -276,12 +276,10 @@ async function addPane(tabId, cwd) {
   }
   area.appendChild(paneEl);
 
-  // Hide other tabs
   document.querySelectorAll('[data-tab-area]').forEach(el => {
     el.style.display = el.dataset.tabArea === activeTabId ? 'flex' : 'none';
   });
 
-  // Create xterm
   const term = new Terminal({
     theme: {
       background:   '#0d0d1a',
@@ -366,13 +364,11 @@ async function addPane(tabId, cwd) {
   panes[paneId] = { term, fitAddon, ptyId, path: cwd, tabId, el: paneEl };
   tab.panes.push(paneId);
 
-  // Create PTY
   const result = await api.ptyCreate({ id: ptyId, cwd });
   if (!result.success) {
-    term.write(`\x1b[31mError al crear terminal: ${result.error}\x1b[0m\r\n`);
+    term.write(`\x1b[31m${t('term.error')} ${result.error}\x1b[0m\r\n`);
   }
 
-  // Fit after a tick
   requestAnimationFrame(() => {
     try {
       fitAddon.fit();
@@ -383,7 +379,6 @@ async function addPane(tabId, cwd) {
 
   setActivePane(paneId);
 
-  // Resize observer
   const ro = new ResizeObserver(() => {
     try {
       fitAddon.fit();
@@ -416,12 +411,11 @@ function destroyPane(paneId) {
 
 function closePaneInTab(tabId, paneId) {
   const tab = getTab(tabId);
-  if (!tab || tab.panes.length <= 1) return; // keep at least one pane
+  if (!tab || tab.panes.length <= 1) return;
 
   destroyPane(paneId);
   tab.panes = tab.panes.filter(id => id !== paneId);
 
-  // Tear down split and rebuild without split.js instance
   rebuildTabLayout(tabId);
 
   if (activePaneId === paneId && tab.panes.length > 0) {
@@ -437,12 +431,12 @@ async function splitActivePane(direction) {
   if (!tab) return;
 
   const activePanePath = panes[activePaneId]?.path || 'C:\\';
-  const newPaneId = await addPane(activeTabId, activePanePath);
+  const newPId = await addPane(activeTabId, activePanePath);
 
   tab.splitMode = direction;
   rebuildTabLayout(activeTabId);
 
-  return newPaneId;
+  return newPId;
 }
 
 function rebuildTabLayout(tabId) {
@@ -452,30 +446,20 @@ function rebuildTabLayout(tabId) {
   const area = document.querySelector(`[data-tab-area="${tabId}"]`);
   if (!area) return;
 
-  // Reset area flex direction
-  if (tab.splitMode === 'vertical') {
-    area.style.flexDirection = 'column';
-  } else {
-    area.style.flexDirection = 'row';
-  }
+  area.style.flexDirection = tab.splitMode === 'vertical' ? 'column' : 'row';
 
-  // Re-append panes in order (they may already be there)
   tab.panes.forEach(paneId => {
     const pane = panes[paneId];
     if (pane) area.appendChild(pane.el);
   });
 
-  // Destroy old split instance if exists
   if (tab.splitInstance) {
     try { tab.splitInstance.destroy(); } catch (_) {}
     tab.splitInstance = null;
   }
 
   if (tab.panes.length > 1) {
-    const elements = tab.panes
-      .map(id => panes[id]?.el)
-      .filter(Boolean);
-
+    const elements = tab.panes.map(id => panes[id]?.el).filter(Boolean);
     const sizes = elements.map(() => 100 / elements.length);
 
     tab.splitInstance = Split(elements, {
@@ -497,7 +481,6 @@ function rebuildTabLayout(tabId) {
     });
   }
 
-  // Refit all panes
   requestAnimationFrame(() => {
     tab.panes.forEach(id => {
       const p = panes[id];
@@ -524,25 +507,25 @@ function renderHistory() {
   const list = document.getElementById('history-list');
   const filter = document.getElementById('history-search').value.toLowerCase();
   list.innerHTML = '';
-  commandHistory.forEach((item, idx) => {
+  commandHistory.forEach((item) => {
     const li = document.createElement('li');
     li.className = 'history-item' + (filter && !item.cmd.toLowerCase().includes(filter) ? ' hidden' : '');
-    li.title = 'Click para re-ejecutar en terminal activa';
+    li.title = t('history.rerun');
 
     const time = document.createElement('span');
     time.className = 'hi-time';
     time.textContent = item.time;
 
-    const tab = document.createElement('span');
-    tab.className = 'hi-tab';
-    tab.textContent = item.tabLabel;
+    const tabEl = document.createElement('span');
+    tabEl.className = 'hi-tab';
+    tabEl.textContent = item.tabLabel;
 
     const cmd = document.createElement('span');
     cmd.className = 'hi-cmd';
     cmd.textContent = item.cmd;
 
     li.appendChild(time);
-    li.appendChild(tab);
+    li.appendChild(tabEl);
     li.appendChild(cmd);
 
     li.addEventListener('click', () => {
@@ -595,7 +578,7 @@ function toggleSidebar() {
 }
 
 async function saveCurrentAsProfile() {
-  const name = prompt('Nombre del perfil:');
+  const name = prompt(t('sidebar.profileName'));
   if (!name) return;
 
   const snapshot = tabs.map(tab => ({
@@ -611,7 +594,6 @@ async function saveCurrentAsProfile() {
 }
 
 async function loadProfile(profile) {
-  // Close existing tabs (keep one)
   while (tabs.length > 1) {
     const last = tabs[tabs.length - 1];
     last.panes.forEach(paneId => destroyPane(paneId));
@@ -619,17 +601,15 @@ async function loadProfile(profile) {
     if (area) area.remove();
     tabs.pop();
   }
-  // Repurpose the first tab
   if (tabs.length === 1) {
-    const t = tabs[0];
-    t.panes.forEach(paneId => destroyPane(paneId));
-    const area = document.querySelector(`[data-tab-area="${t.id}"]`);
+    const tObj = tabs[0];
+    tObj.panes.forEach(paneId => destroyPane(paneId));
+    const area = document.querySelector(`[data-tab-area="${tObj.id}"]`);
     if (area) area.innerHTML = '';
-    t.panes = [];
-    t.label = profile.tabs[0]?.label || 'Terminal 1';
+    tObj.panes = [];
+    tObj.label = profile.tabs[0]?.label || `${t('tab.defaultName')} 1`;
   }
 
-  // Recreate from snapshot
   for (let i = 0; i < profile.tabs.length; i++) {
     const snap = profile.tabs[i];
     let tabId;
@@ -637,7 +617,6 @@ async function loadProfile(profile) {
       tabId = tabs[0].id;
       tabs[0].label = snap.label;
       activeTabId = tabId;
-      // Add panes
       for (const paneSnap of snap.panes) {
         await addPane(tabId, paneSnap.path);
       }
@@ -674,7 +653,7 @@ function renderProfiles() {
   if (profiles.length === 0) {
     const empty = document.createElement('li');
     empty.style.cssText = 'padding:14px;color:var(--text-dim);font-size:12px;text-align:center;';
-    empty.textContent = 'Sin perfiles guardados';
+    empty.textContent = t('sidebar.empty');
     list.appendChild(empty);
     return;
   }
@@ -694,7 +673,7 @@ function renderProfiles() {
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-del-profile';
     delBtn.textContent = '✕';
-    delBtn.title = 'Eliminar perfil';
+    delBtn.title = t('sidebar.delete');
     delBtn.onclick = (e) => { e.stopPropagation(); deleteProfile(idx); };
 
     li.appendChild(name);

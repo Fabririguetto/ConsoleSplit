@@ -16,9 +16,9 @@
       <span id="app-title">ConsoleSplit</span>
     </div>
     <div id="titlebar-controls">
-      <button id="btn-minimize" title="Minimizar">─</button>
-      <button id="btn-maximize" title="Maximizar">□</button>
-      <button id="btn-close" title="Cerrar">✕</button>
+      <button id="btn-minimize" data-i18n-title="win.minimize">─</button>
+      <button id="btn-maximize" data-i18n-title="win.maximize">□</button>
+      <button id="btn-close"    data-i18n-title="win.close">✕</button>
     </div>
   </div>
 
@@ -28,8 +28,8 @@
     <!-- Sidebar: profiles -->
     <aside id="sidebar" class="collapsed">
       <div id="sidebar-header">
-        <span>Perfiles</span>
-        <button id="btn-add-profile" title="Guardar perfil actual">＋</button>
+        <span data-i18n="sidebar.title">Perfiles</span>
+        <button id="btn-add-profile" data-i18n-title="sidebar.add">＋</button>
       </div>
       <ul id="profile-list"></ul>
     </aside>
@@ -40,12 +40,13 @@
       <!-- Tab bar -->
       <div id="tab-bar">
         <div id="tabs-container"></div>
-        <button id="btn-new-tab" title="Nueva pestaña (Ctrl+T)">＋</button>
+        <button id="btn-new-tab"        data-i18n-title="tab.new">＋</button>
         <div id="tab-actions">
-          <button id="btn-split-h" title="Dividir horizontal (Ctrl+Shift+H)">⬛▌</button>
-          <button id="btn-split-v" title="Dividir vertical (Ctrl+Shift+V)">⬛▀</button>
-          <button id="btn-toggle-sidebar" title="Perfiles">☰</button>
-          <button id="btn-toggle-history" title="Historial global">⏱</button>
+          <button id="btn-split-h"        data-i18n-title="btn.splitH">⬛▌</button>
+          <button id="btn-split-v"        data-i18n-title="btn.splitV">⬛▀</button>
+          <button id="btn-toggle-sidebar" data-i18n-title="btn.sidebar">☰</button>
+          <button id="btn-toggle-history" data-i18n-title="btn.history">⏱</button>
+          <button id="btn-lang" title="Language / Idioma">ES</button>
         </div>
       </div>
 
@@ -55,11 +56,13 @@
       <!-- History panel -->
       <div id="history-panel" class="collapsed">
         <div id="history-header">
-          <span>Historial de comandos</span>
+          <span data-i18n="history.title">Historial de comandos</span>
           <div>
-            <input id="history-search" type="text" placeholder="Filtrar comandos..." />
-            <button id="btn-clear-history" title="Limpiar historial">🗑</button>
-            <button id="btn-close-history" title="Cerrar">✕</button>
+            <input id="history-search" type="text"
+              data-i18n-placeholder="history.filter"
+              placeholder="Filtrar comandos..." />
+            <button id="btn-clear-history" data-i18n-title="history.clear">🗑</button>
+            <button id="btn-close-history" data-i18n-title="history.close">✕</button>
           </div>
         </div>
         <ul id="history-list"></ul>
@@ -72,6 +75,7 @@
   <script src="../node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
   <script src="../node_modules/xterm-addon-web-links/lib/xterm-addon-web-links.js"></script>
   <script src="../node_modules/split.js/dist/split.js"></script>
+  <script src="i18n.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

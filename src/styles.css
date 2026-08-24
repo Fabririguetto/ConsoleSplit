@@ -284,6 +284,15 @@ html, body {
 }
 #tab-actions button:hover { background: var(--bg-hover); color: var(--accent); }
 
+#btn-lang {
+  font-size: 11px !important;
+  font-weight: 700;
+  letter-spacing: .5px;
+  min-width: 36px;
+  color: var(--accent2) !important;
+}
+#btn-lang:hover { color: var(--accent) !important; }
+
 /* ── Terminal area ───────────────────────────────────────────────────────── */
 #terminal-area {
   flex: 1;
