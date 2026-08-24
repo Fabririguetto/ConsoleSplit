@@ -898,7 +898,6 @@ async function addPane(tabId, cwd, parentEl = null) {
     cursorStyle: 'bar',
     windowsMode: true,
     rightClickSelectsWord: false,
-    copyOnSelect: true,
   });
 
   const fitAddon   = new FitAddon.FitAddon();
@@ -970,6 +969,36 @@ async function addPane(tabId, cwd, parentEl = null) {
     if (e.ctrlKey && !e.shiftKey && e.key === 'f') {
       if (searchBar.classList.contains('hidden')) openSearch();
       else closeSearch();
+      return false;
+    }
+
+    // Ctrl+Backspace — delete previous word
+    if (e.ctrlKey && e.key === 'Backspace') {
+      const wordMatch = lineBuffer.match(/\S+\s*$/);
+      if (wordMatch) {
+        const n = wordMatch[0].length;
+        api.ptyWrite({ id: ptyId, data: '\x7f'.repeat(n) });
+        lineBuffer = lineBuffer.slice(0, lineBuffer.length - n);
+      }
+      return false;
+    }
+
+    // Ctrl+Shift+C — copy selection
+    if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+      const sel = term.getSelection();
+      if (sel) navigator.clipboard.writeText(sel);
+      return false;
+    }
+
+    // Ctrl+Shift+V — paste
+    if (e.ctrlKey && e.shiftKey && e.key === 'V') {
+      navigator.clipboard.readText().then(text => {
+        if (text) {
+          api.ptyWrite({ id: ptyId, data: text });
+          const lastNl = Math.max(text.lastIndexOf('\r'), text.lastIndexOf('\n'));
+          lineBuffer = lastNl >= 0 ? text.slice(lastNl + 1) : lineBuffer + text;
+        }
+      });
       return false;
     }
 
