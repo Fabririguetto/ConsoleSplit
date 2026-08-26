@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "rebuild": "electron-rebuild -f -w node-pty",
-    "pack": "electron-packager . ConsoleSplit --platform=win32 --arch=x64 --out=dist --overwrite --asar --asar-unpack=node_modules/node-pty/**",
+    "pack": "electron-packager . ConsoleSplit --platform=win32 --arch=x64 --out=dist --overwrite --asar --asar-unpack=node_modules/node-pty/** --icon=assets/icon.ico",
     "dist": "electron-builder --win",
     "dist:portable": "electron-builder --win portable"
   },
