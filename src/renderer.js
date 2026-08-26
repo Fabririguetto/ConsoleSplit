@@ -1349,60 +1349,61 @@ async function saveCurrentAsProfile() {
   renderProfiles();
 }
 
-async function loadProfile(profile) {
-  while (tabs.length > 1) {
-    const last = tabs[tabs.length - 1];
-    destroyTabSplits(last);
-    last.panes.forEach(id => destroyPane(id));
-    const area = document.querySelector(`[data-tab-area="${last.id}"]`);
-    if (area) area.remove();
-    tabs.pop();
+async function loadProfile(profile, addOnly = false) {
+  if (!addOnly) {
+    // Session restore: replace everything with the saved state
+    while (tabs.length > 1) {
+      const last = tabs[tabs.length - 1];
+      destroyTabSplits(last);
+      last.panes.forEach(id => destroyPane(id));
+      const area = document.querySelector(`[data-tab-area="${last.id}"]`);
+      if (area) area.remove();
+      tabs.pop();
+    }
+    if (tabs.length === 1) {
+      const tObj = tabs[0];
+      destroyTabSplits(tObj);
+      tObj.panes.forEach(id => destroyPane(id));
+      tObj.panes = [];
+      tObj.splitInstances = [];
+      const area = document.querySelector(`[data-tab-area="${tObj.id}"]`);
+      if (area) { area.innerHTML = ''; area.style.flexDirection = 'row'; }
+      tObj.label = profile.tabs[0]?.label || `${t('tab.defaultName')} 1`;
+    }
   }
-  if (tabs.length === 1) {
-    const tObj = tabs[0];
-    destroyTabSplits(tObj);
-    tObj.panes.forEach(id => destroyPane(id));
-    tObj.panes = [];
-    tObj.splitInstances = [];
-    const area = document.querySelector(`[data-tab-area="${tObj.id}"]`);
-    if (area) { area.innerHTML = ''; area.style.flexDirection = 'row'; }
-    tObj.label = profile.tabs[0]?.label || `${t('tab.defaultName')} 1`;
-  }
+
+  let firstNewTabId = null;
 
   for (let i = 0; i < profile.tabs.length; i++) {
     const snap  = profile.tabs[i];
     const paths = snap.panes.map(p => p.path);
 
-    if (i === 0 && tabs.length === 1) {
+    let tabId;
+    if (!addOnly && i === 0 && tabs.length === 1) {
       tabs[0].label = snap.label;
       activeTabId = tabs[0].id;
-      await applyGridLayout(tabs[0].id, snap.layoutId || 'single');
-      tabs[0].panes.forEach((paneId, j) => {
-        if (paths[j] && panes[paneId]) {
-          panes[paneId].path = paths[j];
-          api.ptyWrite({ id: panes[paneId].ptyId, data: cdCmd(paths[j]) });
-          const ps = panes[paneId].el.querySelector('.pane-path');
-          if (ps) { ps.textContent = paths[j]; ps.title = paths[j]; }
-          refreshGitBranch(paneId);
-        }
-      });
-    } else {
-      const tabId = await createTab(snap.label);
+      tabId = tabs[0].id;
       await applyGridLayout(tabId, snap.layoutId || 'single');
-      getTab(tabId).panes.forEach((paneId, j) => {
-        if (paths[j] && panes[paneId]) {
-          panes[paneId].path = paths[j];
-          api.ptyWrite({ id: panes[paneId].ptyId, data: cdCmd(paths[j]) });
-          const ps = panes[paneId].el.querySelector('.pane-path');
-          if (ps) { ps.textContent = paths[j]; ps.title = paths[j]; }
-          refreshGitBranch(paneId);
-        }
-      });
+    } else {
+      tabId = await createTab(snap.label);
+      await applyGridLayout(tabId, snap.layoutId || 'single');
     }
+
+    if (!firstNewTabId) firstNewTabId = tabId;
+
+    getTab(tabId).panes.forEach((paneId, j) => {
+      if (paths[j] && panes[paneId]) {
+        panes[paneId].path = paths[j];
+        api.ptyWrite({ id: panes[paneId].ptyId, data: cdCmd(paths[j]) });
+        const ps = panes[paneId].el.querySelector('.pane-path');
+        if (ps) { ps.textContent = paths[j]; ps.title = paths[j]; }
+        refreshGitBranch(paneId);
+      }
+    });
   }
 
   renderTabBar();
-  activateTab(tabs[0].id);
+  activateTab(firstNewTabId || tabs[0].id);
 }
 
 async function deleteProfile(idx) {
@@ -1442,7 +1443,7 @@ function renderProfiles() {
     delBtn.onclick = (e) => { e.stopPropagation(); deleteProfile(idx); };
 
     li.appendChild(name); li.appendChild(tabCount); li.appendChild(delBtn);
-    li.onclick = () => loadProfile(profile);
+    li.onclick = () => loadProfile(profile, true);
     list.appendChild(li);
   });
 }
