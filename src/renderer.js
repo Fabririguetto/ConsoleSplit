@@ -1058,6 +1058,34 @@ async function addPane(tabId, cwd, parentEl = null) {
     }
   }, true); // true = capture phase
 
+  // ── Drag & drop — file paths or text into the terminal ──
+  paneEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    paneEl.classList.add('drag-over');
+  });
+
+  paneEl.addEventListener('dragleave', (e) => {
+    if (!paneEl.contains(e.relatedTarget)) paneEl.classList.remove('drag-over');
+  });
+
+  paneEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    paneEl.classList.remove('drag-over');
+    setActivePane(paneId);
+
+    const files = [...(e.dataTransfer.files || [])];
+    if (files.length > 0) {
+      const paths = files.map(f => f.path.includes(' ') ? `"${f.path}"` : f.path);
+      api.ptyWrite({ id: ptyId, data: paths.join(' ') });
+      return;
+    }
+
+    const text = e.dataTransfer.getData('text/plain');
+    if (text) api.ptyWrite({ id: ptyId, data: text });
+  });
+
   // ── Command history capture ──
   let lineBuffer = '';
   term.onData((data) => {
