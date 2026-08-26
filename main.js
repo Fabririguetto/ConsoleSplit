@@ -26,6 +26,9 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+
+  // Prevent Electron from navigating when files are dropped onto the window
+  mainWindow.webContents.on('will-navigate', (e) => e.preventDefault());
 }
 
 app.whenReady().then(() => {
