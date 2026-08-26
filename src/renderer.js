@@ -1378,14 +1378,18 @@ async function loadProfile(profile, addOnly = false) {
     const snap  = profile.tabs[i];
     const paths = snap.panes.map(p => p.path);
 
+    const tabLabel = (addOnly && profile.name)
+      ? (profile.tabs.length === 1 ? profile.name : `${profile.name} ${i + 1}`)
+      : snap.label;
+
     let tabId;
     if (!addOnly && i === 0 && tabs.length === 1) {
-      tabs[0].label = snap.label;
+      tabs[0].label = tabLabel;
       activeTabId = tabs[0].id;
       tabId = tabs[0].id;
       await applyGridLayout(tabId, snap.layoutId || 'single');
     } else {
-      tabId = await createTab(snap.label);
+      tabId = await createTab(tabLabel);
       await applyGridLayout(tabId, snap.layoutId || 'single');
     }
 
