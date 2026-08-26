@@ -468,43 +468,68 @@ async function applyGridLayout(tabId, layoutId) {
   const tab = getTab(tabId);
   if (!tab) return;
 
-  const oldPaths = tab.panes.map(id => panes[id]?.path || settings.defaultDir);
+  const PANE_COUNTS = {
+    single: 1, cols2: 2, rows2: 2, grid22: 4,
+    cols3: 3, rows3: 3, 'main-r2': 3, 'l2-main': 3,
+  };
+  const needed     = PANE_COUNTS[layoutId] ?? 1;
+  const livePaneIds = [...tab.panes];
 
+  // Detach pane elements from DOM (keeps PTY + terminal alive)
+  livePaneIds.forEach(id => { panes[id]?.el?.remove(); });
+
+  // Remove split gutters
   destroyTabSplits(tab);
-  [...tab.panes].forEach(id => destroyPane(id));
-  tab.panes = [];
-  tab.layoutId = layoutId;
+
+  // Kill only the panes that exceed what the new layout needs
+  for (let i = needed; i < livePaneIds.length; i++) {
+    destroyPane(livePaneIds[i]);
+  }
 
   const area = document.querySelector(`[data-tab-area="${tabId}"]`);
   if (!area) return;
   area.innerHTML = '';
   area.style.flexDirection = 'row';
+  tab.layoutId = layoutId;
+  tab.panes    = [];
 
-  const def = settings.defaultDir || 'C:\\';
-  const path = (i) => oldPaths[i] || def;
+  const def     = settings.defaultDir || 'C:\\';
   const onRefit = () => requestAnimationFrame(() => refitTabPanes(tabId));
 
-  const mkPane = async (parent, cwd) => {
-    const id = await addPane(tabId, cwd, parent);
-    return panes[id];
+  // Reuse an existing live pane or create a new one
+  const attachOrCreate = async (parent, slotIndex) => {
+    const existingId = slotIndex < livePaneIds.length ? livePaneIds[slotIndex] : null;
+    const existing   = existingId ? panes[existingId] : null;
+    if (existing) {
+      existing.colEl = parent.classList?.contains('grid-col') ? parent : null;
+      parent.appendChild(existing.el);
+      tab.panes.push(existingId);
+      return existing;
+    }
+    const newId = await addPane(tabId, def, parent);
+    const pane  = panes[newId];
+    if (pane) pane.colEl = parent.classList?.contains('grid-col') ? parent : null;
+    return pane;
   };
 
   switch (layoutId) {
 
     case 'single': {
-      await mkPane(area, path(0));
+      await attachOrCreate(area, 0);
       break;
     }
 
     case 'cols2': {
-      const [a, b] = await Promise.all([mkPane(area, path(0)), mkPane(area, path(1))]);
+      const a = await attachOrCreate(area, 0);
+      const b = await attachOrCreate(area, 1);
       tab.splitInstances.push(makeSplit([a.el, b.el], 'horizontal', onRefit));
       break;
     }
 
     case 'rows2': {
       area.style.flexDirection = 'column';
-      const [a, b] = await Promise.all([mkPane(area, path(0)), mkPane(area, path(1))]);
+      const a = await attachOrCreate(area, 0);
+      const b = await attachOrCreate(area, 1);
       tab.splitInstances.push(makeSplit([a.el, b.el], 'vertical', onRefit));
       break;
     }
@@ -512,8 +537,10 @@ async function applyGridLayout(tabId, layoutId) {
     case 'grid22': {
       const col1 = mkCol(area);
       const col2 = mkCol(area);
-      const [a, b] = await Promise.all([mkPane(col1, path(0)), mkPane(col1, path(1))]);
-      const [c, d] = await Promise.all([mkPane(col2, path(2)), mkPane(col2, path(3))]);
+      const a = await attachOrCreate(col1, 0);
+      const b = await attachOrCreate(col1, 1);
+      const c = await attachOrCreate(col2, 2);
+      const d = await attachOrCreate(col2, 3);
       tab.splitInstances.push(makeSplit([col1, col2], 'horizontal', onRefit));
       tab.splitInstances.push(makeSplit([a.el, b.el], 'vertical',   onRefit));
       tab.splitInstances.push(makeSplit([c.el, d.el], 'vertical',   onRefit));
@@ -521,14 +548,18 @@ async function applyGridLayout(tabId, layoutId) {
     }
 
     case 'cols3': {
-      const [a, b, c] = await Promise.all([mkPane(area, path(0)), mkPane(area, path(1)), mkPane(area, path(2))]);
+      const a = await attachOrCreate(area, 0);
+      const b = await attachOrCreate(area, 1);
+      const c = await attachOrCreate(area, 2);
       tab.splitInstances.push(makeSplit([a.el, b.el, c.el], 'horizontal', onRefit));
       break;
     }
 
     case 'rows3': {
       area.style.flexDirection = 'column';
-      const [a, b, c] = await Promise.all([mkPane(area, path(0)), mkPane(area, path(1)), mkPane(area, path(2))]);
+      const a = await attachOrCreate(area, 0);
+      const b = await attachOrCreate(area, 1);
+      const c = await attachOrCreate(area, 2);
       tab.splitInstances.push(makeSplit([a.el, b.el, c.el], 'vertical', onRefit));
       break;
     }
@@ -536,8 +567,9 @@ async function applyGridLayout(tabId, layoutId) {
     case 'main-r2': {
       const left  = mkCol(area);
       const right = mkCol(area);
-      const a = await mkPane(left, path(0));
-      const [b, c] = await Promise.all([mkPane(right, path(1)), mkPane(right, path(2))]);
+      const a = await attachOrCreate(left,  0);
+      const b = await attachOrCreate(right, 1);
+      const c = await attachOrCreate(right, 2);
       tab.splitInstances.push(makeSplit([left, right], 'horizontal', onRefit));
       tab.splitInstances.push(makeSplit([b.el, c.el],  'vertical',   onRefit));
       try { tab.splitInstances[0].setSizes([60, 40]); } catch (_) {}
@@ -547,8 +579,9 @@ async function applyGridLayout(tabId, layoutId) {
     case 'l2-main': {
       const left  = mkCol(area);
       const right = mkCol(area);
-      const [a, b] = await Promise.all([mkPane(left, path(0)), mkPane(left, path(1))]);
-      const c = await mkPane(right, path(2));
+      const a = await attachOrCreate(left,  0);
+      const b = await attachOrCreate(left,  1);
+      const c = await attachOrCreate(right, 2);
       tab.splitInstances.push(makeSplit([left, right], 'horizontal', onRefit));
       tab.splitInstances.push(makeSplit([a.el, b.el],  'vertical',   onRefit));
       try { tab.splitInstances[0].setSizes([40, 60]); } catch (_) {}

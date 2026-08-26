@@ -1,6 +1,6 @@
 {
   "name": "consolesplit",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Multi-terminal desktop app with tabs and split panes",
   "main": "main.js",
   "scripts": {
@@ -24,14 +24,18 @@
     "directories": {
       "output": "dist"
     },
+    "icon": "assets/icon.png",
     "files": [
       "main.js",
       "preload.js",
       "src/**/*",
+      "assets/**/*",
       "node_modules/**/*",
       "!node_modules/.cache/**/*"
     ],
     "win": {
+      "icon": "assets/icon.ico",
+      "sign": false,
       "target": [
         {
           "target": "nsis",
